@@ -1,0 +1,2746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>几何难点实验室</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='18' y='18' width='64' height='64' rx='14' fill='%230891b2'/><path d='M30 70 L50 30 L70 70' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<script type="importmap">
+{"imports":{
+ "three":"https://fastly.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+ "three/addons/":"https://fastly.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<style>
+/* ============ 设计系统 ============ */
+:root{
+  --bg:#f6f4ef; --ink:#1f2937; --muted:#6b7280; --card:#ffffff; --line:#e5e7eb;
+  --t1:#0891b2; --t1-soft:#cffafe; --t1-ink:#155e75;
+  --t2:#ea580c; --t2-soft:#ffedd5; --t2-ink:#9a3412;
+  --t3:#db2777; --t3-soft:#fce7f3; --t3-ink:#9d174d;
+  --t4:#16a34a; --t4-soft:#dcfce7; --t4-ink:#166534;
+  --t5:#7c3aed; --t5-soft:#ede9fe; --t5-ink:#5b21b6;
+  --radius:18px; --shadow:0 10px 30px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:21px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;}
+#app{max-width:1240px;margin:0 auto;padding:28px 34px 60px;}
+h1,h2,h3{line-height:1.3;margin:0 0 14px;}
+.muted{color:var(--muted);}
+
+/* ---- 按钮 ---- */
+.btn{border:none;border-radius:14px;padding:14px 28px;font-size:20px;font-weight:700;cursor:pointer;transition:transform .12s,filter .12s;min-height:54px;}
+.btn:active{transform:translateY(2px);}
+.btn-primary{background:var(--accent,var(--t1));color:#fff;box-shadow:0 6px 16px rgba(8,145,178,.25);}
+.btn-primary:hover{filter:brightness(1.06);}
+.btn-ghost{background:#fff;color:var(--accent,var(--t1));border:2.5px solid var(--accent,var(--t1));}
+.btn-ghost:hover{background:var(--soft,var(--t1-soft));}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.status-bar{background:var(--soft,var(--t1-soft));color:var(--accent-ink,var(--t1-ink));border:none;border-radius:14px;padding:16px 22px;text-align:center;font-weight:600;width:100%;}
+
+/* ---- 顶部条 ---- */
+.topbar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:22px;}
+.topbar .spacer{flex:1;}
+.icon-btn{width:54px;height:54px;border-radius:14px;border:2.5px solid var(--line);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:24px;}
+.icon-btn:hover{border-color:var(--accent,var(--t1));}
+
+/* ---- 首页地图 ---- */
+.hero{text-align:center;padding:26px 0 16px;}
+.hero h1{font-size:44px;}
+.hero p{font-size:22px;color:var(--muted);max-width:880px;margin:0 auto;}
+.topic-block{margin-bottom:34px;}
+.topic-head{display:flex;align-items:center;gap:14px;margin-bottom:8px;flex-wrap:wrap;}
+.topic-badge{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:24px;flex:0 0 auto;}
+.topic-head h2{margin:0;font-size:27px;}
+.topic-head .tdesc{width:100%;color:var(--muted);font-size:19px;margin:2px 0 8px 66px;}
+.node-row{display:flex;gap:16px;flex-wrap:wrap;}
+.node{position:relative;min-width:150px;flex:1;background:var(--card);border-radius:var(--radius);padding:20px;cursor:pointer;box-shadow:var(--shadow);border:3px solid transparent;transition:transform .12s,border-color .12s;}
+.node:hover{transform:translateY(-4px);border-color:var(--nc,var(--t1));}
+.node .no{font-size:17px;color:var(--muted);font-weight:700;}
+.node .nm{font-size:21px;font-weight:800;margin:6px 0 10px;}
+.node .tag{font-size:16px;font-weight:700;color:var(--nc,var(--t1));}
+.node.done{background:var(--ns,var(--t1-soft));}
+.node.done .tag{color:var(--accent-ink,var(--t1-ink));}
+.node .dot{position:absolute;top:16px;right:16px;width:18px;height:18px;border-radius:50%;border:3px solid var(--nc,var(--t1));}
+.node.done .dot{background:var(--nc,var(--t1));}
+
+/* ---- 实验页 ---- */
+.phase-track{display:flex;gap:10px;margin-bottom:26px;flex-wrap:wrap;}
+.phase{flex:1;min-width:120px;text-align:center;padding:10px;border-radius:12px;background:#fff;border:2.5px solid var(--line);font-size:18px;font-weight:700;color:var(--muted);}
+.phase.active{background:var(--accent,var(--t1));color:#fff;border-color:var(--accent,var(--t1));}
+.phase.done{background:var(--soft,var(--t1-soft));color:var(--accent-ink,var(--t1-ink));border-color:var(--accent,var(--t1));}
+.panel{background:var(--card);border-radius:var(--radius);padding:30px;box-shadow:var(--shadow);margin-bottom:24px;}
+.panel h3{font-size:25px;}
+.lab-wrap{position:relative;min-height:300px;display:flex;flex-direction:column;}
+#labZone{width:100%;position:relative;}
+#labZone .stage-3d{flex:0 0 auto;}
+.flat-grid{display:grid;gap:10px;justify-content:center;margin:0 auto;}
+.locked-mask{position:absolute;inset:0;background:rgba(246,244,239,.86);border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:5;text-align:center;padding:20px;}
+.lock-ico{width:74px;height:74px;border-radius:50%;background:#fff;border:3px solid var(--accent,var(--t1));display:flex;align-items:center;justify-content:center;font-size:34px;}
+.guess-vs{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+.guess-vs .col{border-radius:14px;padding:20px;border:2.5px dashed var(--line);}
+.guess-vs .col h4{margin:0 0 10px;font-size:20px;}
+.guess-vs .col.mine{border-color:var(--accent,var(--t1));background:var(--soft,var(--t1-soft));}
+.choice-grid{display:flex;gap:14px;flex-wrap:wrap;}
+.choice{min-width:120px;padding:15px 22px;border-radius:14px;background:#fff;border:2.5px solid var(--line);font-size:19px;font-weight:700;cursor:pointer;color:var(--ink);}
+.choice.sel{background:var(--accent,var(--t1));color:#fff;border-color:var(--accent,var(--t1));}
+.choice.unsure{border-style:dashed;}
+.cand-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin:8px 0;}
+.cand-card{background:#fff;border:3px solid var(--line);border-radius:18px;padding:20px 16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:12px;transition:transform .12s,border-color .12s,background .12s;}
+.cand-card:hover{transform:translateY(-4px);border-color:var(--accent,var(--t1));}
+.cand-card .cand-label{font-size:22px;font-weight:800;color:var(--ink);}
+.cand-card.sel{border-color:var(--accent,var(--t1));background:var(--soft,var(--t1-soft));}
+.cand-card.sel .cand-label{color:var(--accent-ink,var(--t1-ink));}
+.btns{display:flex;gap:16px;flex-wrap:wrap;margin-top:22px;}
+.hidden{display:none !important;}
+
+/* ---- 3D 场景 ---- */
+.scene{display:flex;flex-direction:column;align-items:center;width:100%;}
+.stage-3d{perspective:1300px;display:flex;align-items:center;justify-content:center;width:100%;min-height:440px;padding:30px 10px;cursor:grab;user-select:none;touch-action:none;overflow:visible;}
+.stage-3d:active{cursor:grabbing;}
+.stage-3d .cube3{position:relative;transform-style:preserve-3d;}
+.face3{position:absolute;display:flex;align-items:center;justify-content:center;font-weight:800;border:2px solid rgba(255,255,255,.7);backface-visibility:visible;}
+.quick-views{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:16px;}
+.mini-btn{padding:9px 16px;border-radius:11px;background:#fff;border:2.5px solid var(--accent,var(--t1));color:var(--accent,var(--t1));font-size:17px;font-weight:700;cursor:pointer;}
+.mini-btn:hover{background:var(--soft,var(--t1-soft));}
+.handle{position:absolute;width:26px;height:26px;border-radius:50%;background:var(--accent,var(--t1));border:4px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.25);cursor:grab;transform:translate(-50%,-50%);z-index:8;}
+.handle:hover{filter:brightness(1.12);}
+svg{max-width:100%;}
+.toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%) translateY(20px);background:#1f2937;color:#fff;padding:14px 26px;border-radius:14px;font-size:19px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:99;max-width:80%;text-align:center;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.summary-big{font-size:24px;font-weight:800;}
+.cond{font-size:18px;color:var(--muted);margin-top:10px;}
+
+/* ---- 备查卡片 ---- */
+.ref-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;}
+.ref-card{background:#fff;border-radius:18px;padding:26px;box-shadow:var(--shadow);border-top:8px solid var(--rc,var(--t5));}
+.ref-card h3{font-size:23px;margin:0 0 12px;color:var(--rc,var(--t5));}
+.ref-card table{width:100%;border-collapse:collapse;font-size:18px;}
+.ref-card th,.ref-card td{border:2px solid var(--line);padding:9px 12px;text-align:left;}
+.ref-card th{background:var(--rs,var(--t5-soft));font-weight:800;}
+@media (max-width:860px){.ref-grid,.cand-cards{grid-template-columns:1fr;}.guess-vs{grid-template-columns:1fr;}#app{padding:18px;}.topic-head .tdesc{margin-left:0;}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+/* ================= 全局状态与工具 ================= */
+const SAVE_KEY="geo_hard_lab_v1";
+const $=s=>document.querySelector(s);
+let state={done:{},muted:false,progress:{}};
+try{Object.assign(state,JSON.parse(localStorage.getItem(SAVE_KEY)||"{}"));}catch(e){}
+function save(){localStorage.setItem(SAVE_KEY,JSON.stringify(state));}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
+function sfx(type){if(state.muted)return;try{const AC=window.AudioContext||window.webkitAudioContext;if(!sfx._ac)sfx._ac=new AC();const ac=sfx._ac,o=ac.createOscillator(),g=ac.createGain();const f={click:520,good:660,soft:440}[type]||500;o.frequency.value=f;o.type="sine";g.gain.value=.12;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.25);o.connect(g);o.start();o.stop(ac.currentTime+.26);}catch(e){}}
+function toggleMute(){state.muted=!state.muted;save();}
+
+/* ================= 专题与实验元数据 ================= */
+const TOPICS=[
+ {id:"T1",key:"t1",name:"平面和立体互换",desc:"看照片、拆盒子、转着切，练的是脑子里把平面和立体来回倒。"},
+ {id:"T2",key:"t2",name:"线段、最短与分类讨论",desc:"怎么连最近、一个图为什么有好几种答案，都在这里头。"},
+ {id:"T3",key:"t3",name:"角的度量与推理",desc:"60 进制怎么算、余角补角怎么推、钟表方位怎么读。"},
+ {id:"T4",key:"t4",name:"计数与归纳",desc:"数东西不重不漏，再从几个例子里摸出 n 的规律。"}
+];
+const EXPS=[
+ {id:1,topic:"T1",name:"三视图",impl:"E1"},
+ {id:2,topic:"T1",name:"看穿遮挡",impl:"E2"},
+ {id:3,topic:"T1",name:"看照片认模型",impl:"E3"},
+ {id:4,topic:"T1",name:"还原与个数最值",impl:"E4"},
+ {id:5,topic:"T1",name:"正方体展开折叠",impl:"E5"},
+ {id:6,topic:"T1",name:"找对面",impl:"E6"},
+ {id:7,topic:"T1",name:"长方体展开",impl:"E7"},
+ {id:8,topic:"T1",name:"线动成面",impl:"E8"},
+ {id:9,topic:"T1",name:"面动成体",impl:"E9"},
+ {id:10,topic:"T1",name:"截面探秘",impl:"E10"},
+ {id:11,topic:"T2",name:"线段最短",impl:"E11"},
+ {id:12,topic:"T2",name:"空间修路",impl:"E12"},
+ {id:13,topic:"T2",name:"台阶展开",impl:"E13"},
+ {id:14,topic:"T2",name:"垂线段最短",impl:"E14"},
+ {id:15,topic:"T2",name:"中点与和差",impl:"E15"},
+ {id:16,topic:"T2",name:"线段分类讨论",impl:"E16"},
+ {id:17,topic:"T3",name:"度分秒60进制",impl:"E17"},
+ {id:18,topic:"T3",name:"角的和差运算",impl:"E18"},
+ {id:19,topic:"T3",name:"角平分线",impl:"E19"},
+ {id:20,topic:"T3",name:"余角补角",impl:"E20"},
+ {id:21,topic:"T3",name:"方位角",impl:"E21"},
+ {id:22,topic:"T3",name:"钟表夹角",impl:"E22"},
+ {id:23,topic:"T4",name:"数角数线段",impl:"E23"},
+ {id:24,topic:"T4",name:"棱柱棱锥归纳",impl:"E24"}
+];
+const Exp=id=>EXPS.find(x=>x.id===id);
+const topicOf=id=>TOPICS.find(t=>t.id===Exp(id).topic);
+const REF_CARDS=[
+ {id:"R1",name:"直线、射线、线段"},
+ {id:"R2",name:"两点确定一条直线"},
+ {id:"R3",name:"角的种类"},
+ {id:"R4",name:"两条直线的关系"}
+];
+
+/* ================= 路由 ================= */
+function route(){
+ const h=location.hash||"#home";
+ if(h.startsWith("#exp/")){openExp(parseInt(h.split("/")[1],10));}
+ else if(h.startsWith("#ref")){renderRef();}
+ else{renderHome();}
+ window.scrollTo(0,0);
+}
+window.addEventListener("hashchange",route);
+
+/* ================= 首页 ================= */
+function renderHome(){
+ disposeActiveThree();
+ const blocks=TOPICS.map(tp=>{
+  const nodes=EXPS.filter(e=>e.topic===tp.id).map(e=>{
+   const done=!!state.done[e.id];
+   return `<div class="node ${done?"done":""}" style="--nc:var(--${tp.key});--ns:var(--${tp.key}-soft);--accent:var(--${tp.key});--accent-ink:var(--${tp.key}-ink)" onclick="goExp(${e.id})">
+     <div class="dot"></div><div class="no">实验 ${e.id}</div><div class="nm">${e.name}</div>
+     <div class="tag">${done?"我探索过":"未探索"}</div></div>`;
+  }).join("");
+  return `<div class="topic-block"><div class="topic-head">
+    <div class="topic-badge" style="background:var(--${tp.key})">${tp.id.slice(1)}</div>
+    <h2>专题${tp.id.slice(1)} · ${tp.name}</h2>
+    <div class="tdesc">${tp.desc}</div></div>
+    <div class="node-row">${nodes}</div></div>`;
+ }).join("");
+ $("#app").innerHTML=`<div class="hero"><h1>几何难点实验室</h1>
+   <p>专挑有点绕、光看书容易卡住的地方。每个实验都先自己猜一猜，再动手验证；猜错不扣分，图形只是帮你看清楚。</p>
+   <div style="margin-top:24px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+     <button class="btn btn-ghost" id="refBtn" style="--accent:var(--t5);--soft:var(--t5-soft)">基础备查卡片</button>
+     <button class="btn btn-ghost" id="resetAllBtn" style="--accent:#dc2626;--soft:#fef2f2">重置所有进度</button>
+   </div></div>${blocks}`;
+ $("#refBtn").onclick=()=>location.hash="#ref";
+ $("#resetAllBtn").onclick=confirmReset;
+}
+function goExp(id){location.hash="#exp/"+id;}
+function backHome(){location.hash="#home";}
+function confirmReset(){
+ document.querySelectorAll(".reset-mask").forEach(m=>m.remove());
+ const mask=document.createElement("div");
+ mask.className="reset-mask";
+ mask.style.cssText="position:fixed;inset:0;background:rgba(31,41,55,.55);display:flex;align-items:center;justify-content:center;z-index:120;padding:20px";
+ mask.innerHTML=`<div style="background:#fff;border-radius:20px;padding:30px;max-width:500px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25)">
+   <h3 style="margin:0 0 10px;font-size:26px">确认重置所有进度？</h3>
+   <p style="color:#6b7280;font-size:20px;margin:0 0 22px">会清空所有"探索过"的记录和实验进度，可以从头再来。这个操作不能撤销。</p>
+   <div class="btns" style="margin-top:0">
+     <button class="btn btn-ghost" id="cancelReset" style="--accent:#6b7280;--soft:#f3f4f4">取消</button>
+     <button class="btn btn-primary" id="doReset" style="--accent:#dc2626">确定重置</button>
+   </div></div>`;
+ document.body.appendChild(mask);
+ mask.querySelector("#cancelReset").onclick=()=>mask.remove();
+ mask.querySelector("#doReset").onclick=()=>{
+   const muted=state.muted;
+   state={done:{},muted:muted,progress:{}};
+   save();mask.remove();renderHome();
+   toast("已重置，所有实验都可以从头做了");
+ };
+}
+
+/* ================= 实验框架与阶段控制 ================= */
+const PHASES=["提出猜想","动手实验","对照证据","大白话"];
+function applyTheme(tp){
+ $("#app").style.setProperty("--accent",`var(--${tp.key})`);
+ $("#app").style.setProperty("--soft",`var(--${tp.key}-soft)`);
+ $("#app").style.setProperty("--accent-ink",`var(--${tp.key}-ink)`);
+}
+function openExp(id){
+ disposeActiveThree();
+ const lv=Exp(id),tp=topicOf(id);
+ applyTheme(tp);
+ const mod=window[lv.impl];
+ if(!mod){
+   $("#app").innerHTML=`<div class="topbar"><button class="icon-btn" onclick="backHome()">←</button><h2>实验 ${id} · ${lv.name}</h2></div>
+     <div class="panel" style="text-align:center"><p>这个实验还在搭建中，先看看别的吧。</p>
+     <div class="btns" style="justify-content:center"><button class="btn btn-primary" onclick="backHome()">回到首页</button></div></div>`;
+   return;
+ }
+ const phases=PHASES.map((p,i)=>`<div class="phase" data-ph="${i}">${p}</div>`).join("");
+ $("#app").innerHTML=`
+  <div class="topbar">
+    <button class="icon-btn" onclick="backHome()" title="返回地图">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h2 style="margin:0">实验 ${lv.id} · ${lv.name}</h2>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="muteBtn" title="声音">${state.muted?"🔇":"🔊"}</button>
+  </div>
+  <div class="phase-track">${phases}</div>
+  <div class="panel" id="guessPanel"><h3>① 先做出你的猜想</h3><div id="guessZone"></div>
+    <div class="btns"><button class="btn btn-primary" id="submitGuess">记下猜想，开始实验</button></div></div>
+  <div class="panel" id="labPanel"><h3>② 动手做实验</h3>
+    <div class="lab-wrap"><div id="labZone"></div>
+      <div class="locked-mask" id="labMask"><div class="lock-ico">🔒</div><div class="status-bar" style="max-width:520px">先做出你的猜想，再动手验证。</div></div></div>
+    <div class="status-bar hidden" id="observeBar" style="margin-top:18px"></div></div>
+  <div class="panel hidden" id="reflectPanel"><h3>③ 对照证据，保留还是修改</h3><div id="reflectZone"></div></div>
+  <div class="panel hidden" id="summaryPanel"><h3>④ 大白话总结</h3><div id="summaryZone"></div>
+    <div class="btns" id="finishBtns"></div></div>`;
+ $("#muteBtn").onclick=()=>{toggleMute();$("#muteBtn").textContent=state.muted?"🔇":"🔊";};
+ setPhase(0);
+ const ctx=makeCtx(lv,tp);
+ mod.buildGuess($("#guessZone"),ctx);
+ const saved=state.progress[id];
+ if(saved&&saved.guess!==undefined&&saved.guess!==null){
+   ctx.guess=saved.guess;
+   restoreGuessUI($("#guessZone"),saved.guess,mod);
+   const sb=$("#submitGuess");sb.disabled=true;sb.textContent="猜想已记下（往上做实验）";
+   enterLab(lv,tp,ctx,mod,true);
+ }
+ $("#submitGuess").onclick=()=>{
+   if(!mod.isComplete(ctx)){toast(mod.missMsg||"还有没选好的地方，先补齐哦。");return;}
+   ctx.guess=mod.collect(ctx);
+   state.progress[id]={guess:ctx.guess};save();
+   const sb=$("#submitGuess");sb.disabled=true;sb.textContent="猜想已记下（往上做实验）";
+   enterLab(lv,tp,ctx,mod,false);
+ };
+}
+function makeCtx(lv,tp){return {lv,tp,data:{},guess:null};}
+function setPhase(n){document.querySelectorAll(".phase").forEach((el,i)=>{el.classList.remove("active","done");if(i<n)el.classList.add("done");if(i===n)el.classList.add("active");});}
+function restoreGuessUI(zone,guess,mod){
+ if(mod.restoreGuess){mod.restoreGuess(zone,guess);return;}
+ if(guess===null||guess===undefined)return;
+ const b=zone.querySelector('.choice[data-v="'+guess+'"]');
+ if(b)b.click();
+}
+function enterLab(lv,tp,ctx,mod,restoring){
+ $("#labMask").classList.add("hidden");
+ setPhase(1);
+ if(!restoring){sfx("good");toast("猜想已记下，来试试看。");}
+ mod.buildLab($("#labZone"),ctx);
+ if(mod.observe){const ob=$("#observeBar");ob.textContent="观察任务："+mod.observe;ob.classList.remove("hidden");}
+ $("#reflectPanel").classList.remove("hidden");
+ mod.buildReflect($("#reflectZone"),ctx);
+ setPhase(2);
+ $("#summaryPanel").classList.remove("hidden");
+ $("#summaryZone").innerHTML=`<div class="summary-big">${mod.summary}</div>${mod.condition?`<div class="cond">适用条件：${mod.condition}</div>`:""}`;
+ const last=lv.id>=EXPS.length;
+ $("#finishBtns").innerHTML=`<button class="btn btn-ghost" onclick="backHome()">回到首页</button>
+   ${last?`<button class="btn btn-primary" onclick="backHome()">全部探索完</button>`:`<button class="btn btn-primary" onclick="goExp(${lv.id+1})">下一个实验</button>`}`;
+ setPhase(3);
+ if(!restoring){state.done[lv.id]=true;save();sfx("good");}
+}
+
+/* ================= 通用：3D 旋转器 ================= */
+function createRotator(host,opts){
+ const size=opts.size||260;
+ host.innerHTML=`<div class="stage-3d" id="st3"><div class="cube3" id="cb3" style="width:${size}px;height:${size}px"></div></div>
+   <div class="quick-views" id="qv3"></div>`;
+ const stage=host.querySelector("#st3"),cube=host.querySelector("#cb3"),qv=host.querySelector("#qv3");
+ let rx=-18,ry=-18,drag=false,sx=0,sy=0;
+ function apply(){cube.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`;}
+ stage.addEventListener("mousedown",e=>{if(e.target.classList.contains("handle"))return;drag=true;sx=e.clientX;sy=e.clientY;e.preventDefault();});
+ window.addEventListener("mousemove",e=>{if(!drag)return;ry+=(e.clientX-sx)*.55;rx-=(e.clientY-sy)*.55;rx=Math.max(-89,Math.min(89,rx));sx=e.clientX;sy=e.clientY;apply();});
+ window.addEventListener("mouseup",()=>drag=false);
+ const views=[["回正",-18,-18],["从上",-89,ry],["从下",89,ry],["从右",rx,-90],["从左",rx,90],["从前",rx,0],["从后",rx,180]];
+ qv.innerHTML=views.map((v,i)=>`<button class="mini-btn" data-i="${i}">${v[0]}</button>`).join("");
+ qv.querySelectorAll(".mini-btn").forEach(b=>b.onclick=()=>{const i=+b.dataset.i;
+   if(i===0){rx=-18;ry=-18;}
+   else if(i===1){rx=-89;}
+   else if(i===2){rx=89;}
+   else{rx=0;ry=views[i][2];}
+   apply();});
+ apply();
+ if(opts.build)opts.build(cube,{setRx:x=>{rx=x;apply();},setRy:y=>{ry=y;apply();}});
+ return {cube,apply,setAng:(x,y)=>{rx=x;ry=y;apply();}};
+}
+
+/* ================= 通用：选择控件 ================= */
+function choiceHtml(items,{multi=false,unsure=false}={}){
+ return `<div class="choice-grid" data-multi="${multi}">${items.map((it,i)=>`<button class="choice" data-v="${i}">${it}</button>`).join("")}
+   ${unsure?`<button class="choice unsure" data-v="unsure">我不确定</button>`:""}</div>`;
+}
+function bindChoice(zone,onChange){
+ const sel=new Set();
+ zone.querySelectorAll(".choice").forEach(c=>c.onclick=()=>{
+   const grid=zone.querySelector(".choice-grid");
+   const multi=grid&&grid.dataset.multi==="true";
+   const v=c.dataset.v;
+   if(!multi){zone.querySelectorAll(".choice").forEach(x=>x.classList.remove("sel"));c.classList.add("sel");sel.clear();sel.add(v);}
+   else{if(c.classList.contains("sel")){c.classList.remove("sel");sel.delete(v);}else{c.classList.add("sel");sel.add(v);}}
+   sfx("click");onChange&&onChange([...sel]);
+ });
+ return {sel,get:()=>[...sel]};
+}
+
+/* ================= 通用 three.js 舞台 ================= */
+const activeStages=new Set();
+function disposeActiveThree(){activeStages.forEach(s=>s.dispose());activeStages.clear();}
+const ThreeStage={
+ _mods:null,
+ async _load(){
+  if(!this._mods){
+   const THREE=await import('three');
+   const {OrbitControls}=await import('three/addons/controls/OrbitControls.js');
+   this._mods={THREE,OrbitControls};
+  }
+  return this._mods;
+ },
+ async create(host,opts={}){
+  const {THREE,OrbitControls}=await this._load();
+  const H=opts.height||420;
+  const W0=host.clientWidth||600;
+  const scene=new THREE.Scene();
+  scene.background=new THREE.Color(opts.bg||0xf6f4ef);
+  const camera=new THREE.PerspectiveCamera(46,W0/H,.1,1000);
+  camera.position.set(opts.camX||6,opts.camY||5,opts.camZ||8);
+  const renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(W0,H);
+  host.appendChild(renderer.domElement);
+  scene.add(new THREE.AmbientLight(0xffffff,.72));
+  const key=new THREE.DirectionalLight(0xffffff,1.15);
+  key.position.set(6,10,7);scene.add(key);
+  const fill=new THREE.DirectionalLight(0xbfefff,.4);
+  fill.position.set(-7,-3,-5);scene.add(fill);
+  const controls=new OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true;controls.dampingFactor=.08;
+  controls.target.set(0,0,0);
+  function onResize(){
+   const w=host.clientWidth||W0;
+   camera.aspect=w/H;camera.updateProjectionMatrix();
+   renderer.setSize(w,H);
+  }
+  window.addEventListener('resize',onResize);
+  let raf;
+  (function loop(){raf=requestAnimationFrame(loop);controls.update();renderer.render(scene,camera);})();
+  const api={THREE,scene,camera,renderer,controls,
+   render(){renderer.render(scene,camera);},
+   dispose(){
+    if(activeStages.has(api))activeStages.delete(api);
+    cancelAnimationFrame(raf);
+    window.removeEventListener('resize',onResize);
+    controls.dispose();
+    scene.traverse(o=>{
+     if(o.geometry)o.geometry.dispose();
+     if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{
+      for(const k in m)if(m[k]&&m[k].isTexture)m[k].dispose();
+      m.dispose();
+     });}
+    });
+    renderer.dispose();
+    if(renderer.domElement.parentNode)renderer.domElement.parentNode.removeChild(renderer.domElement);
+   }};
+  activeStages.add(api);
+  return api;
+ }
+};
+
+/* ================= 实验实现（按专题分批填充） ================= */
+const E={};
+
+/* ---------- 通用体素 3D（three.js） ---------- */
+const Voxel3D={
+  center(vl){
+    const g=k=>[Math.min(...vl.map(v=>v[k])),Math.max(...vl.map(v=>v[k]))];
+    const bx=g("x"),by=g("y"),bz=g("z");
+    return {cx:(bx[0]+bx[1])/2,cy:(by[0]+by[1])/2,cz:(bz[0]+bz[1])/2};
+  },
+  build(stage,vl,opts={}){
+    const THREE=stage.THREE;
+    const group=new THREE.Group();
+    const box=opts.size!==undefined?opts.size:1;
+    const gap=opts.gap!==undefined?opts.gap:.05;
+    const color=opts.color!==undefined?opts.color:0x0891b2;
+    const {cx,cy,cz}=this.center(vl);
+    const meshes=[];
+    vl.forEach((v,i)=>{
+      const geo=new THREE.BoxGeometry(box-gap,box-gap,box-gap);
+      const mat=new THREE.MeshStandardMaterial({color,roughness:.5,metalness:.06});
+      const mesh=new THREE.Mesh(geo,mat);
+      const base=new THREE.Vector3((v.x-cx)*box,(v.y-cy)*box,(v.z-cz)*box);
+      mesh.position.copy(base);
+      const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+        new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.6}));
+      mesh.add(edges);
+      mesh.userData={voxel:v,idx:i,base};
+      group.add(mesh);meshes.push(mesh);
+    });
+    stage.scene.add(group);
+    let exploded=0;
+    const handle={
+      group,meshes,
+      setExplode(factor){
+        exploded=factor;
+        meshes.forEach(m=>{
+          const b=m.userData.base;
+          const dir=b.clone();
+          if(dir.lengthSq()<1e-6)return;
+          dir.normalize();
+          m.position.copy(b).addScaledVector(dir,factor);
+        });
+      },
+      setOpacity(o){
+        meshes.forEach(m=>{
+          m.material.transparent=o<1;
+          m.material.opacity=o;
+          m.material.depthWrite=o>=.6;
+          m.children[0].visible=o>=.35;
+        });
+      },
+      highlight(idx,on=true){
+        const m=meshes[idx];
+        if(!m)return;
+        m.material.emissive=new THREE.Color(on?0xf59e0b:0x000000);
+        m.material.emissiveIntensity=on?.45:0;
+      },
+      dispose(){
+        meshes.forEach(m=>{
+          m.geometry.dispose();m.material.dispose();
+          m.children.forEach(c=>{c.geometry.dispose();c.material.dispose();});
+        });
+        if(group.parent)group.parent.remove(group);
+      }
+    };
+    return handle;
+  }
+};
+
+/* ---------- 通用体素工具（CSS 3D 与 2D 投影） ---------- */
+const Voxel={
+ bounds(vl){const g=k=>[Math.min(...vl.map(v=>v[k])),Math.max(...vl.map(v=>v[k]))];
+   return {x:g("x"),y:g("y"),z:g("z")};},
+ render(cube,vl,S,base){
+   const b=this.bounds(vl),cx=(b.x[0]+b.x[1])/2,cy=(b.y[0]+b.y[1])/2,cz=(b.z[0]+b.z[1])/2;
+   const col={top:base.light,side:base.mid,side2:base.dark,bottom:base.deep};
+   const faceDef=[
+     ["top",`rotateX(90deg) translateZ(${S/2}px)`],["bottom",`rotateX(-90deg) translateZ(${S/2}px)`],
+     ["front",`translateZ(${S/2}px)`],["back",`rotateY(180deg) translateZ(${S/2}px)`],
+     ["right",`rotateY(90deg) translateZ(${S/2}px)`],["left",`rotateY(-90deg) translateZ(${S/2}px)`]];
+   cube.innerHTML="";
+   vl.forEach((v,i)=>{
+     const g=document.createElement("div");
+     g.style.cssText=`position:absolute;left:0;top:0;width:${S}px;height:${S}px;transform-style:preserve-3d;
+       transform:translate3d(${(v.x-cx)*S}px,${-(v.y-cy)*S}px,${(v.z-cz)*S}px);`;
+     g.dataset.idx=i;
+     faceDef.forEach(([fd,t])=>{
+       const f=document.createElement("div");
+       const c=fd==="top"?col.top:fd==="bottom"?col.bottom:fd==="front"||fd==="right"?col.side:col.side2;
+       f.style.cssText=`position:absolute;width:${S}px;height:${S}px;background:${c};border:2px solid rgba(255,255,255,.75);border-radius:6px;transform:${t};`;
+       f.dataset.face=fd;g.appendChild(f);
+     });
+     cube.appendChild(g);
+   });
+   return {bounds:b};
+ },
+ static(host,vl,opts={}){
+   const S=opts.S||64;
+   host.innerHTML=`<div class="stage-3d" style="min-height:${opts.h||300}px;cursor:default"><div class="cube3" style="width:${S}px;height:${S}px;transform:rotateX(-18deg) rotateY(-18deg)"></div></div>`;
+   this.render(host.querySelector(".cube3"),vl,S,opts.base||Voxel.pal);
+ },
+ pal:{light:"#a5f3fc",mid:"#22d3ee",dark:"#0891b2",deep:"#155e75"},
+ project(vl,dir){
+   const keys=new Set();
+   vl.forEach(v=>{
+     if(dir==="right"||dir==="left"){keys.add(v.y+"|"+v.z);}
+     else if(dir==="front"||dir==="back"){keys.add(v.x+"|"+v.y);}
+     else{keys.add(v.x+"|"+v.z);}
+   });
+   return keys;
+ },
+ view2D(host,vl,dir,opts={}){
+   const p=this.project(vl,dir),b=this.bounds(vl);
+   let rows,cols;
+   if(dir==="right"||dir==="left"){rows=b.y,cols=b.z;}
+   else if(dir==="front"||dir==="back"){rows=b.y,cols=b.x;}
+   else{rows=b.z,cols=b.x;}
+   const cs=opts.cell||46,ac=opts.accent||"var(--accent)",sf=opts.soft||"var(--soft)";
+   host.innerHTML=`<div style="font-weight:800;margin-bottom:8px;text-align:center">${opts.label||""}</div>
+     <div class="flat-grid" style="grid-template-columns:repeat(${cols[1]-cols[0]+1},${cs}px)">
+     ${(function(){let out="";for(let r=rows[1];r>=rows[0];r--)for(let c=cols[0];c<=cols[1];c++){
+       const on=p.has(r+"|"+c);
+       out+=`<div style="width:${cs}px;height:${cs}px;border-radius:8px;border:2px solid ${on?ac:"#d1d5db"};background:${on?sf:"#fff"};display:flex;align-items:center;justify-content:center;font-weight:800;color:${ac}">${on?"■":""}</div>`;
+     }return out;})()}</div>`;
+   return host;
+ }
+};
+
+/* ---------- SVG 把手拖动 ---------- */
+function svgHandle(svgEl,pt,onMove,fill){
+ const h=document.createElementNS("http://www.w3.org/2000/svg","circle");
+ h.setAttribute("class","svg-handle");
+ h.setAttribute("r",13);h.setAttribute("fill",fill||"var(--accent)");h.setAttribute("stroke","#fff");
+ h.setAttribute("stroke-width",4);h.style.cursor="grab";
+ function place(){h.setAttribute("cx",pt.x);h.setAttribute("cy",pt.y);}
+ place();svgEl.appendChild(h);
+ const pt0=svgEl.createSVGPoint();
+ function toSvg(e){pt0.x=e.clientX;pt0.y=e.clientY;const p=pt0.matrixTransform(svgEl.getScreenCTM().inverse());return {x:p.x,y:p.y};}
+ h.addEventListener("mousedown",e=>{e.preventDefault();e.stopPropagation();
+   function mv(ev){const p=toSvg(ev);pt.x=p.x;pt.y=p.y;place();onMove&&onMove(pt);}
+   function up(){window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);}
+   window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);});
+ return {set(x,y){pt.x=x;pt.y=y;place();},pt,remove(){h.remove();}};
+}
+
+/* ---------- 展开图 2D 网格 ---------- */
+function netHtml(coords,cell=34,marks={}){
+ const xs=coords.map(c=>c.x),ys=coords.map(c=>c.y);
+ const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+ let out="";
+ for(let y=miny;y<=maxy;y++)for(let x=minx;x<=maxx;x++){
+   const f=coords.find(c=>c.x===x&&c.y===y);
+   const clash=marks.clash&&f&&marks.clash.includes(f.id);
+   out+=`<div style="width:${cell}px;height:${cell}px;border-radius:7px;
+     background:${f?(clash?"#fecaca":"var(--soft)"):"transparent"};
+     border:${f?("2px solid "+(clash?"#dc2626":"var(--accent)")):"none"};
+     display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--accent-ink)">${f?f.id:""}</div>`;
+ }
+ return `<div class="flat-grid" style="grid-template-columns:repeat(${maxx-minx+1},${cell}px)">${out}</div>`;
+}
+
+/* ---------- 展开图折叠引擎（立方体，等大格子） ---------- */
+function netTree(coords,rootId){
+ const at={};coords.forEach(c=>at[c.x+","+c.y]=c.id);
+ const root=coords.find(c=>c.id===rootId);
+ const parent={},dir=[];const seen=new Set([rootId]);const q=[root];
+ const nb=[[1,0,"right"],[-1,0,"left"],[0,-1,"up"],[0,1,"down"]];
+ while(q.length){const c=q.shift();
+  for(const[dx,dy,d]of nb){const nid=at[(c.x+dx)+","+(c.y+dy)];if(!nid)continue;
+   if(seen.has(nid)){continue;}
+   seen.add(nid);parent[nid]=c.id;dir[nid]=d;q.push(coords.find(z=>z.id===nid));}}
+ return {root,parent,dir};
+}
+function netFold(coords,rootId,S,progress){
+ const h=S/2,theta=90*progress;
+ const I=()=>[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+ const mul=(a,b)=>{const r=[0,1,2,3].map(()=>[0,0,0,0]);
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++)for(let k=0;k<4;k++)r[i][j]+=a[i][k]*b[k][j];return r;};
+ const tx=v=>{const m=I();m[0][3]=v;return m;},ty=v=>{const m=I();m[1][3]=v;return m;};
+ const rX=t=>{const c=Math.cos(t*Math.PI/180),s=Math.sin(t*Math.PI/180);return [[1,0,0,0],[0,c,-s,0],[0,s,c,0],[0,0,0,1]];};
+ const rY=t=>{const c=Math.cos(t*Math.PI/180),s=Math.sin(t*Math.PI/180);return [[c,0,s,0],[0,1,0,0],[-s,0,c,0],[0,0,0,1]];};
+ const H={
+  right:{css:`translateX(${h}px) rotateY(${theta}deg) translateX(${h}px)`,M:mul(mul(tx(h),rY(theta)),tx(h))},
+  left:{css:`translateX(${-h}px) rotateY(${-theta}deg) translateX(${-h}px)`,M:mul(mul(tx(-h),rY(-theta)),tx(-h))},
+  up:{css:`translateY(${-h}px) rotateX(${theta}deg) translateY(${-h}px)`,M:mul(mul(ty(-h),rX(theta)),ty(-h))},
+  down:{css:`translateY(${h}px) rotateX(${-theta}deg) translateY(${h}px)`,M:mul(mul(ty(h),rX(-theta)),ty(h))}
+ };
+ const {root,parent,dir}=netTree(coords,rootId);
+ const order=[rootId];let k=0;
+ while(k<order.length){const id=order[k++];
+  coords.forEach(c=>{if(parent[c.id]===id)order.push(c.id);});}
+ const M={},css={};M[rootId]=I();css[rootId]="";
+ for(const id of order){if(id===rootId)continue;
+  M[id]=mul(M[parent[id]],H[dir[id]].M);
+  css[id]=css[parent[id]]+H[dir[id]].css;}
+ const ap=(m,p)=>[m[0][0]*p[0]+m[0][1]*p[1]+m[0][2]*p[2]+m[0][3],
+  m[1][0]*p[0]+m[1][1]*p[1]+m[1][2]*p[2]+m[1][3],
+  m[2][0]*p[0]+m[2][1]*p[1]+m[2][2]*p[2]+m[2][3]];
+ const res={};
+ for(const id of order)res[id]={c:ap(M[id],[0,0,0]),css:css[id]};
+ const clash=[];
+ for(let i=0;i<order.length;i++)for(let j=i+1;j<order.length;j++){
+  const a=res[order[i]].c,b=res[order[j]].c;
+  if(Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2])<1)clash.push([order[i],order[j]]);}
+ return {res,clash,order};
+}
+
+/* ---------- 参数化长方体折叠 ---------- */
+function boxFold(faces,progress){
+ const theta=90*progress;
+ const I=()=>[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+ const mul=(a,b)=>{const r=[0,1,2,3].map(()=>[0,0,0,0]);
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++)for(let k=0;k<4;k++)r[i][j]+=a[i][k]*b[k][j];return r;};
+ const tx=v=>{const m=I();m[0][3]=v;return m;},ty=v=>{const m=I();m[1][3]=v;return m;};
+ const rX=t=>{const c=Math.cos(t*Math.PI/180),s=Math.sin(t*Math.PI/180);return [[1,0,0,0],[0,c,-s,0],[0,s,c,0],[0,0,0,1]];};
+ const rY=t=>{const c=Math.cos(t*Math.PI/180),s=Math.sin(t*Math.PI/180);return [[c,0,s,0],[0,1,0,0],[-s,0,c,0],[0,0,0,1]];};
+ const by={};faces.forEach(f=>by[f.id]=f);
+ const root=faces.find(f=>!f.par).id;
+ const order=[root];let k=0;
+ while(k<order.length){const id=order[k++];
+  faces.forEach(f=>{if(f.par===id)order.push(f.id);});}
+ const M={},css={};M[root]=I();css[root]="";
+ for(const id of order){if(id===root)continue;const f=by[id],p=by[f.par];
+  const pw=p.w/2,ph=p.h/2,cw=f.w/2,ch=f.h/2;let hM,hCss;
+  if(f.dir==="right"){hCss=`translateX(${pw}px) rotateY(${theta}deg) translateX(${cw}px)`;hM=mul(mul(tx(pw),rY(theta)),tx(cw));}
+  else if(f.dir==="left"){hCss=`translateX(${-pw}px) rotateY(${-theta}deg) translateX(${-cw}px)`;hM=mul(mul(tx(-pw),rY(-theta)),tx(-cw));}
+  else if(f.dir==="up"){hCss=`translateY(${-ph}px) rotateX(${theta}deg) translateY(${-ch}px)`;hM=mul(mul(ty(-ph),rX(theta)),ty(-ch));}
+  else{hCss=`translateY(${ph}px) rotateX(${-theta}deg) translateY(${ch}px)`;hM=mul(mul(ty(ph),rX(-theta)),ty(ch));}
+  M[id]=mul(M[f.par],hM);css[id]=css[f.par]+hCss;}
+ const ap=(m,p)=>[m[0][0]*p[0]+m[0][1]*p[1]+m[0][2]*p[2]+m[0][3],
+  m[1][0]*p[0]+m[1][1]*p[1]+m[1][2]*p[2]+m[1][3],
+  m[2][0]*p[0]+m[2][1]*p[1]+m[2][2]*p[2]+m[2][3]];
+ const res={};
+ for(const id of order)res[id]={c:ap(M[id],[0,0,0]),css:css[id]};
+ return {res,order};
+}
+
+/* ---------- 五角星 ---------- */
+function starSvg(size=36,color="#f59e0b"){
+ const s=document.createElement("span");
+ s.style.cssText="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none";
+ s.innerHTML=`<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="#fff" stroke-width="1.5"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg>`;
+ return s;
+}
+
+/* ---------- 长方体平面展开图（真实尺寸） ---------- */
+function boxNetHtml(faces,opts={}){
+ const {res,order}=boxFold(faces,0);
+ const by={};faces.forEach(f=>by[f.id]=f);
+ let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+ order.forEach(id=>{const f=by[id],c=res[id].c;
+   minX=Math.min(minX,c[0]-f.w/2);maxX=Math.max(maxX,c[0]+f.w/2);
+   minY=Math.min(minY,c[1]-f.h/2);maxY=Math.max(maxY,c[1]+f.h/2);});
+ const W=maxX-minX,H=maxY-minY;
+ const wrap=document.createElement("div");
+ wrap.style.cssText=`position:relative;width:${W}px;height:${H}px`;
+ const star=opts.star||null,picked=opts.picked||null;
+ order.forEach(id=>{const f=by[id],c=res[id].c;
+   const isPick=picked===id,isStar=star===id;
+   const d=document.createElement("div");
+   d.style.cssText=`position:absolute;left:${c[0]-f.w/2-minX}px;top:${c[1]-f.h/2-minY}px;width:${f.w}px;height:${f.h}px;background:${f.color};border:${isPick?"4px solid #0e7490":"2px solid #fff"};border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:#155e75;box-sizing:border-box;${opts.clickable?"cursor:pointer;":""}`;
+   d.dataset.id=id;d.textContent=f.id;
+   if(isStar)d.appendChild(starSvg());
+   if(opts.clickable)d.onclick=()=>opts.onPick&&opts.onPick(id);
+   wrap.appendChild(d);
+ });
+ return wrap;
+}
+
+/* ================= 专题一实验 ================= */
+
+/* ---------- E1 三视图 ---------- */
+E.E1={
+ voxels:[{x:0,y:0,z:0},{x:1,y:0,z:0},{x:0,y:1,z:0}],
+ missMsg:"先选一个你的猜想，拿不准就选'我不确定'。",
+ buildGuess(zone,ctx){
+   const vl=this.voxels;
+   const wrong1=[{x:0,y:0,z:0},{x:1,y:0,z:0},{x:2,y:0,z:0}];
+   const wrong2=[{x:0,y:0,z:0},{x:0,y:1,z:0},{x:0,y:2,z:0}];
+   ctx.data.cands=[vl,wrong1,wrong2];
+   zone.innerHTML=`<p class="muted">下面这个积木，<b>从正面看</b>过去，是哪张图？</p>
+     <div id="prev"></div>
+     <p style="font-weight:800;margin:22px 0 6px">三张图都看得见，点一张你认为对的：</p>
+     <div class="cand-cards" id="candCards"></div>
+     <div style="display:flex;justify-content:center;margin-top:6px"><button class="choice unsure" data-v="unsure">我不确定</button></div>`;
+   Voxel.static(zone.querySelector("#prev"),vl,{S:62});
+   const cc=zone.querySelector("#candCards"),labels=["图 A","图 B","图 C"];
+   ctx.data.cands.forEach((c,i)=>{
+     const card=document.createElement("button");
+     card.type="button";card.className="choice cand-card";card.dataset.v=i;
+     card.innerHTML=`<span class="cand-label">${labels[i]}</span><div id="cc${i}"></div>`;
+     cc.appendChild(card);
+     Voxel.view2D(card.querySelector("#cc"+i),c,"front",{cell:40});
+   });
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const vl=this.voxels;
+   zone.innerHTML=`<div class="scene">
+     <div id="host1" style="width:100%;min-height:440px"></div>
+     <p style="font-weight:800;margin:18px 0 8px">同一个积木的三视图（点格子看对应）：</p>
+     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%" id="threeViews">
+       <div id="vF"></div><div id="vT"></div><div id="vL"></div></div></div>`;
+   Voxel.view2D(zone.querySelector("#vF"),vl,"front",{label:"正面（从前看）",cell:36});
+   Voxel.view2D(zone.querySelector("#vT"),vl,"top",{label:"上面（从上看）",cell:36});
+   Voxel.view2D(zone.querySelector("#vL"),vl,"left",{label:"左面（从左看）",cell:36});
+   zone.querySelectorAll("#threeViews .flat-grid > div").forEach(cell=>{
+     cell.addEventListener("click",()=>{toast("这一格对应立体里的一列，转过去看看。");sfx("click");});
+   });
+   (async()=>{
+     const stage=await ThreeStage.create(zone.querySelector("#host1"),{height:440,camX:3.2,camY:2.6,camZ:4});
+     Voxel3D.build(stage,vl,{color:0x0891b2});
+     stage.render();
+   })().catch(()=>{zone.querySelector("#host1").insertAdjacentHTML("afterend",
+     '<div class="status-bar">3D 暂时没加载出来，检查网络后刷新试试。</div>');});
+ },
+ buildReflect(zone,ctx){
+   const cands=ctx.data.cands,mine=ctx.guess;
+   const mineTxt=mine==="unsure"?"我不确定":("我选了图 "+({0:"A",1:"B",2:"C"}[mine]));
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才的猜想 · ${mineTxt}</h4><div id="myView"></div></div>
+     <div class="col"><h4>正面实际拍到 · 图 A</h4><div id="realView"></div></div></div>
+     <p class="muted" style="margin-top:16px">再看下面实验区的三张图，正面、上面、左面各一张。</p>`;
+   if(mine==="unsure"){zone.querySelector("#myView").innerHTML='<p class="muted">你选了不确定，先看实际拍到的。</p>';}
+   else{Voxel.view2D(zone.querySelector("#myView"),cands[mine],"front",{cell:40});}
+   Voxel.view2D(zone.querySelector("#realView"),cands[0],"front",{cell:40});
+ },
+ observe:"转一转模型，再对照三视图，看每张图是从哪个方向拍的。",
+ summary:"同一个立体，从正面、上面、左面看，得到三张平面图，合起来叫三视图。",
+ condition:"积木没变，只是看的方向变了；画三视图前要先约定好哪边算正面。"
+};
+
+/* ---------- E2 看穿遮挡 ---------- */
+E.E2={
+ voxels:[{x:0,y:0,z:0},{x:1,y:0,z:0},{x:0,y:1,z:0},{x:1,y:1,z:0}],
+ missMsg:"先选一个猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   zone.innerHTML=`<p class="muted">这个积木有前后两层，<b>从右边看</b>，哪些格子里有方块？先猜。</p>
+     <div id="prev"></div>
+     <p style="font-weight:800;margin:18px 0 10px">你认为从右边看是几格？</p>
+     ${choiceHtml(["2 格（一上一下）","3 格","4 格"],{unsure:true})}`;
+   Voxel.static(zone.querySelector("#prev"),this.voxels,{S:58});
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const vl=this.voxels;
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" style="margin-bottom:8px">
+       <button class="mini-btn" id="addHidden">① 加一块被挡住的</button>
+       <button class="mini-btn" id="moveOut">② 挪到挡不住的地方</button>
+       <button class="mini-btn" id="explode">③ 爆炸图：分开看</button>
+       <button class="mini-btn" id="ghost">④ 半透明看穿</button></div>
+     <div id="host2" style="width:100%;min-height:440px"></div>
+     <p style="font-weight:800;margin:18px 0 8px">右侧相机拍到的照片，三个阶段都留在这儿对照：</p>
+     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px" id="photoTrack">
+       <div id="p0"></div><div id="p1"></div><div id="p2"></div></div></div>`;
+   let work=vl.map(v=>({...v})),extra=null,exploded=false,ghost=false,stage=null,handle=null;
+   Voxel.view2D(zone.querySelector("#p0"),vl,"right",{label:"一开始：2 格",cell:34});
+   function rebuild(){
+     if(!stage)return;
+     if(handle)handle.dispose();
+     handle=Voxel3D.build(stage,work,{color:0x0891b2});
+     if(exploded)handle.setExplode(.55);
+     if(ghost)handle.setOpacity(.4);
+     stage.render();
+   }
+   (async()=>{
+     stage=await ThreeStage.create(zone.querySelector("#host2"),{height:440,camX:3.8,camY:3,camZ:4.8});
+     rebuild();
+   })().catch(()=>{zone.querySelector("#host2").insertAdjacentHTML("afterend",
+     '<div class="status-bar">3D 暂时没加载出来，检查网络后刷新试试。</div>');});
+   zone.querySelector("#addHidden").addEventListener("click",()=>{
+     if(extra){toast("这块已经加过了，看照片——没有变。");return;}
+     extra={x:2,y:0,z:0};work.push(extra);rebuild();
+     Voxel.view2D(zone.querySelector("#p1"),work,"right",{label:"加了被挡住的：还是 2 格",cell:34});
+     sfx("click");toast("加了一块藏在后面的，照片没有变！");});
+   zone.querySelector("#moveOut").addEventListener("click",()=>{
+     if(!extra){toast("先点①加一块被挡住的，再把它挪出来。");return;}
+     extra.z=1;rebuild();
+     Voxel.view2D(zone.querySelector("#p2"),work,"right",{label:"挪到挡不住：变成 3 格",cell:34});
+     sfx("click");toast("挪到挡不住的地方，照片多出一格，变成 3 格。");});
+   zone.querySelector("#explode").addEventListener("click",()=>{
+     exploded=!exploded;rebuild();sfx("click");
+     toast(exploded?"方块沿视线分开了，被挡住的也看到了。":"方块合回去了。");});
+   zone.querySelector("#ghost").addEventListener("click",()=>{
+     ghost=!ghost;rebuild();sfx("click");
+     toast(ghost?"方块变半透明，挡在后面的也看见了。":"方块恢复不透明。");});
+ },
+ buildReflect(zone,ctx){
+   const mine=ctx.guess;
+   const txt=mine==="unsure"?"我不确定":(["2 格","3 格","4 格"][mine]||"我不确定");
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${txt}</p></div>
+     <div class="col"><h4>最开始从右边看</h4><p>是 2 格（一上一下）。前后两个方块叠在同一条视线里，前面的挡住后面的，照片上只算一格。</p></div></div>
+     <p class="muted" style="margin-top:16px">区分两件事：被挡住的方块确实存在；但只有挪到挡不住的地方，照片上才会多出一格。</p>`;
+ },
+ observe:"先加一块被挡住的，照片不变；再把它挪到挡不住的地方，看照片多出一格。",
+ summary:"被挡住的方块确实存在，但它和前面的方块叠在同一个格子里，照片上只显示一格。",
+ condition:"沿同一视线叠放的多块方块，在该方向的平面视图里占同一个格子。"
+};
+
+/* ---------- E3 看照片认模型 ---------- */
+E.E3={
+ target:[{x:0,y:0,z:0},{x:1,y:0,z:0},{x:0,y:1,z:0},{x:0,y:0,z:1}],
+ missMsg:"先选一个候选模型，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   const T=this.target;
+   const wA=[{x:0,y:0,z:0},{x:1,y:0,z:0},{x:1,y:1,z:0},{x:0,y:0,z:1}];
+   const wB=[{x:0,y:0,z:0},{x:1,y:0,z:0},{x:0,y:1,z:0},{x:1,y:1,z:0}];
+   ctx.data.cands=[T,wA,wB];
+   zone.innerHTML=`<p class="muted">下面是同一个模型的两张照片：<b>从右边看</b>和<b>从前边看</b>。哪个候选模型符合这两张照片？</p>
+     <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;margin:14px 0">
+       <div id="vR"></div><div id="vF"></div></div>
+     <p style="font-weight:800;margin:16px 0 10px">三个候选（点小图看，再选）：</p>
+     <div class="choice-grid" id="candPick"></div>${choiceHtml([],{unsure:true})}`;
+   Voxel.view2D(zone.querySelector("#vR"),T,"right",{label:"从右看",cell:40});
+   Voxel.view2D(zone.querySelector("#vF"),T,"front",{label:"从前看",cell:40});
+   const cp=zone.querySelector("#candPick");
+   ctx.data.cands.forEach((c,i)=>{
+     const d=document.createElement("div");
+     d.style.cssText="display:flex;flex-direction:column;align-items:center;gap:8px";
+     d.innerHTML=`<div id="cs${i}"></div><button class="choice" data-v="${i}">模型 ${i+1}</button>`;
+     cp.appendChild(d);
+     Voxel.static(d.querySelector("#cs"+i),c,{S:40,h:180});
+   });
+   const un=zone.querySelectorAll(".choice-grid")[1];
+   cp.appendChild(un.querySelector(".choice"));un.remove();
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const T=this.target,cands=ctx.data.cands;
+   let cur=0;
+   if(ctx.guess&&ctx.guess!=="unsure"&&[0,1,2].includes(Number(ctx.guess)))cur=Number(ctx.guess);
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" id="candTabs" style="margin-bottom:10px"></div>
+     <div id="host3" style="width:100%;min-height:440px"></div>
+     <p style="font-weight:800;margin:16px 0 8px">对照真身的两张照片：</p>
+     <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center">
+       <div id="vR"></div><div id="vF"></div></div>
+     <div class="status-bar" id="lab3s" style="margin-top:14px"></div></div>`;
+   const tabs=zone.querySelector("#candTabs");
+   cands.forEach((c,i)=>{
+     const b=document.createElement("button");b.className="mini-btn";b.textContent="模型 "+(i+1);
+     b.addEventListener("click",()=>{cur=i;load();sfx("click");});
+     tabs.appendChild(b);
+   });
+   Voxel.view2D(zone.querySelector("#vR"),T,"right",{label:"从右看",cell:40});
+   Voxel.view2D(zone.querySelector("#vF"),T,"front",{label:"从前看",cell:40});
+   let stage=null,handle=null;
+   function load(){
+     if(!stage)return;
+     if(handle)handle.dispose();
+     handle=Voxel3D.build(stage,cands[cur],{color:cur===0?0x0891b2:0x7c3aed});
+     stage.render();
+     [...tabs.children].forEach((x,i)=>{x.style.fontWeight=i===cur?"900":"600";
+       x.style.outline=i===cur?"3px solid var(--accent)":"none";});
+     zone.querySelector("#lab3s").textContent=cur===0?
+       "模型 1 转一转，两张照片每一格都对得上，它就是真身。":
+       "模型 "+(cur+1)+" 转着对照两张照片，总有一张对不上。";
+   }
+   (async()=>{
+     stage=await ThreeStage.create(zone.querySelector("#host3"),{height:440,camX:3.6,camY:2.8,camZ:4.6});
+     load();
+   })().catch(()=>{zone.querySelector("#host3").insertAdjacentHTML("afterend",
+     '<div class="status-bar">3D 暂时没加载出来，检查网络后刷新试试。</div>');});
+ },
+ buildReflect(zone,ctx){
+   const mine=ctx.guess;const mt=mine==="unsure"?"我不确定":("模型 "+(Number(mine)+1));
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才选</h4><p>${mt}</p></div>
+     <div class="col"><h4>符合两张照片的</h4><p>是模型 1。模型 2、3 总有一张照片对不上，转一转就能发现。</p></div></div>
+     <p class="muted" style="margin-top:16px">这是在这三个候选里找符合的；两张照片不一定能唯一确定世界上任意一个立体。</p>`;
+ },
+ observe:"旋转模型 1，对照两张照片，确认每一格都对得上。",
+ summary:"两张不同方向的照片合起来，能在候选里帮我们找出符合的模型。",
+ condition:"结论限定在给出的候选范围内；不同立体也可能有相同的某两个方向投影。"
+};
+
+/* ---------- E4 三视图还原与个数最值 ---------- */
+E.E4={
+ POS:{FL:{x:0,z:0},FR:{x:1,z:0},BL:{x:0,z:1}},
+ missMsg:"最少和最多都要选一个，拿不准也先选上。",
+ buildGuess(zone,ctx){
+   const frontDemo=[{x:0,y:0,z:0},{x:0,y:1,z:0},{x:1,y:0,z:0}];
+   const topDemo=[{x:0,y:0,z:0},{x:1,y:0,z:0},{x:0,y:0,z:1}];
+   zone.innerHTML=`<p class="muted">要用小正方体搭一个积木，已经知道它的<b>主视图</b>和<b>俯视图</b>。先想想，最少要几个、最多要几个？</p>
+     <div style="display:flex;gap:30px;flex-wrap:wrap;justify-content:center;margin:10px 0">
+       <div id="dFront"></div><div id="dTop"></div></div>
+     <p style="font-weight:800;margin:14px 0 6px">最少要几个小正方体？</p>
+     <div id="minPick">${choiceHtml(["3 个","4 个","5 个"],{unsure:true})}</div>
+     <p style="font-weight:800;margin:18px 0 6px">最多要几个小正方体？</p>
+     <div id="maxPick">${choiceHtml(["4 个","5 个","6 个"],{unsure:true})}</div>`;
+   Voxel.view2D(zone.querySelector("#dFront"),frontDemo,"front",{label:"主视图（左列高2、右列高1）",cell:40});
+   Voxel.view2D(zone.querySelector("#dTop"),topDemo,"top",{label:"俯视图（3个位置）",cell:40});
+   ctx.data.minChoice=bindChoice(zone.querySelector("#minPick"));
+   ctx.data.maxChoice=bindChoice(zone.querySelector("#maxPick"));
+ },
+ isComplete(ctx){return ctx.data.minChoice.sel.size>0&&ctx.data.maxChoice.sel.size>0;},
+ collect(ctx){return {min:ctx.data.minChoice.get()[0],max:ctx.data.maxChoice.get()[0]};},
+ toVoxels(h){
+   const v=[];
+   for(const k in this.POS){for(let y=0;y<h[k];y++)v.push({x:this.POS[k].x,y,z:this.POS[k].z});}
+   return v;
+ },
+ buildLab(zone,ctx){
+   const POS=this.POS;
+   let h={FL:1,FR:1,BL:1},stage=null,handle=null;
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" style="margin-bottom:8px">
+       <button class="mini-btn" id="setMin">看最少摆法</button>
+       <button class="mini-btn" id="setMax">看最多摆法</button>
+       <button class="mini-btn" id="resetH">回到每个1层</button></div>
+     <div id="host4" style="width:100%;min-height:420px"></div>
+     <p style="font-weight:800;margin:16px 0 8px">俯视图上自己调层数（点 + / −）：</p>
+     <div id="ctrl" style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap"></div>
+     <div class="status-bar" id="s4" style="max-width:780px;margin-top:16px"></div></div>`;
+   const host=zone.querySelector("#host4"),ctrl=zone.querySelector("#ctrl"),st=zone.querySelector("#s4");
+   function valid(){
+     const allOne=h.FL>=1&&h.FR>=1&&h.BL>=1;
+     const leftMax=Math.max(h.FL,h.BL),rightMax=h.FR;
+     return allOne&&leftMax===2&&rightMax===1;
+   }
+   function total(){return h.FL+h.FR+h.BL;}
+   function drawCtrl(){
+     const labels={FL:"前左",FR:"前右",BL:"后左"};
+     ctrl.innerHTML=Object.keys(POS).map(k=>`
+       <div style="border:3px solid var(--accent);border-radius:14px;padding:12px 16px;text-align:center;background:#fff">
+         <div style="font-weight:800">${labels[k]}</div>
+         <div style="font-size:30px;font-weight:900;color:var(--accent);margin:4px 0">${h[k]} 层</div>
+         <div style="display:flex;gap:8px;justify-content:center">
+           <button class="mini-btn" data-k="${k}" data-d="-1">−</button>
+           <button class="mini-btn" data-k="${k}" data-d="1">+</button></div></div>`).join("");
+     ctrl.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+       const k=b.dataset.k,d=Number(b.dataset.d);
+       const isRight=k==="FR",cap=isRight?1:2;
+       const nv=h[k]+d;
+       if(nv<0||nv>cap){toast(isRight?"右列主视图只到1层。":"这一列最多叠2层。");return;}
+       h[k]=nv;sfx("click");rebuild();
+     });
+   }
+   function rebuild(){
+     const vl=E.E4.toVoxels(h);
+     if(handle)handle.dispose();
+     if(stage)handle=Voxel3D.build(stage,vl,{color:0x0891b2});
+     if(stage)stage.render();
+     drawCtrl();
+     const t=total();
+     if(valid())st.textContent=`现在一共 ${t} 个，两个视图都对得上。${t===4?"这就是最少的摆法。":t===5?"这就是最多的摆法。":"符合视图，但还能再少或再多，试试。"}`;
+     else st.textContent=`现在一共 ${t} 个，但视图还对不上（要保证3个位置都有、左列最高2、右列最高1）。`;
+   }
+   zone.querySelector("#setMin").onclick=()=>{h={FL:2,FR:1,BL:1};sfx("click");rebuild();};
+   zone.querySelector("#setMax").onclick=()=>{h={FL:2,FR:1,BL:2};sfx("click");rebuild();};
+   zone.querySelector("#resetH").onclick=()=>{h={FL:1,FR:1,BL:1};sfx("click");rebuild();};
+   (async()=>{
+     stage=await ThreeStage.create(host,{height:420,camX:3.4,camY:2.6,camZ:4.4});
+     rebuild();
+   })().catch(()=>{host.insertAdjacentHTML("afterend",
+     '<div class="status-bar">3D 暂时没加载出来，检查网络后刷新试试。</div>');});
+ },
+ buildReflect(zone,ctx){
+   const g=ctx.guess;
+   const minTxt=g.min==="unsure"?"不确定":["3个","4个","5个"][g.min];
+   const maxTxt=g.max==="unsure"?"不确定":["4个","5个","6个"][g.max];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>最少 ${minTxt}、最多 ${maxTxt}</p></div>
+     <div class="col"><h4>自己摆出来</h4><p>俯视图3个位置，每个至少1个。左列要高2，两个位置里只要一个叠到2，就是<b>最少4个</b>；两个都叠到2，就是<b>最多5个</b>。</p></div></div>
+     <p class="muted" style="margin-top:16px">俯视图管"有几个位置"，主视图管"每列最多多高"，两件事分开看就不乱。</p>`;
+ },
+ observe:"自己调层数，再点最少、最多，看个数怎么变。",
+ summary:"俯视图定位置、主视图定高度；同一组视图可能对应多种摆法，所以有最少和最多。",
+ condition:"每个俯视图位置至少1个；左列最高2、右列最高1，都满足才算对。"
+};
+
+/* ---------- E5 正方体展开折叠 ---------- */
+const NETS={
+ g1:[{id:"F",x:0,y:0},{id:"B",x:0,y:-1},{id:"R",x:1,y:0},{id:"L",x:-1,y:0},{id:"Fr",x:0,y:1},{id:"T",x:0,y:2}],
+ g2:[{id:"F",x:0,y:0},{id:"B",x:0,y:-1},{id:"R",x:1,y:0},{id:"L",x:-1,y:0},{id:"Fr",x:0,y:1},{id:"T",x:2,y:0}],
+ b1:[{id:"1",x:0,y:0},{id:"2",x:1,y:0},{id:"3",x:0,y:1},{id:"4",x:1,y:1},{id:"5",x:0,y:2},{id:"6",x:0,y:3}],
+ b2:[{id:"1",x:0,y:0},{id:"2",x:1,y:0},{id:"3",x:2,y:0},{id:"4",x:3,y:0},{id:"5",x:4,y:0},{id:"6",x:0,y:1}]
+};
+E.E5={
+ missMsg:"先在四个图里做你的选择（多选），拿不准也先选上。",
+ NETS:[
+   {name:"图1",coords:NETS.g1.map((c,i)=>({...c,id:String(i+1)})),good:true},
+   {name:"图2",coords:NETS.g2.map((c,i)=>({...c,id:String(i+1)})),good:true},
+   {name:"图3",coords:NETS.b1.map((c,i)=>({...c,id:String(i+1)})),good:false},
+   {name:"图4",coords:NETS.b2.map((c,i)=>({...c,id:String(i+1)})),good:false}
+ ],
+ buildGuess(zone,ctx){
+   const nets=this.NETS;
+   zone.innerHTML=`<p class="muted">立方体盒子拆开，下面四个图里，<b>哪几个能折回成一个立方体？</b>（多选；都用 1～6 编号）</p>
+     <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center" id="nets"></div>
+     <p style="font-weight:800;margin:18px 0 8px">点图选择（可多选）：</p>${choiceHtml([],{unsure:true})}`;
+   const wrap=zone.querySelector("#nets");
+   nets.forEach(net=>{
+     const d=document.createElement("div");
+     d.style.cssText="display:flex;flex-direction:column;gap:8px;align-items:center;cursor:pointer";
+     d.innerHTML=`<div style="font-weight:800">${net.name}</div>${netHtml(net.coords,32)}`;
+     d.onclick=()=>{d.classList.toggle("picked");d.style.outline=d.classList.contains("picked")?"4px solid var(--accent)":"none";sfx("click");};
+     wrap.appendChild(d);
+   });
+   const u=zone.querySelector(".choice-grid .choice");
+   u.onclick=()=>{u.classList.toggle("sel");sfx("click");};
+   ctx.data.picked=()=>[...wrap.children].map((d,i)=>d.classList.contains("picked")?i:-1).filter(i=>i>=0);
+   ctx.data.unsure=()=>u.classList.contains("sel");
+ },
+ isComplete(ctx){return ctx.data.picked().length>0||ctx.data.unsure();},
+ collect(ctx){return {picked:ctx.data.picked(),unsure:ctx.data.unsure()};},
+ restoreGuess(zone,g){
+   const wrap=zone.querySelector("#nets");
+   (g.picked||[]).forEach(i=>{const d=wrap.children[i];
+     if(d){d.classList.add("picked");d.style.outline="4px solid var(--accent)";}});
+   if(g.unsure){const u=zone.querySelector(".choice-grid .choice");if(u)u.click();}
+ },
+ buildLab(zone,ctx){
+   const S=150,h=S/2;
+   const pal={1:"#67e8f9",2:"#86efac",3:"#fcd34d",4:"#fdba74",5:"#f9a8d4",6:"#fda4af"};
+   const nets=this.NETS;
+   const myPicked=(ctx.guess&&ctx.guess.picked)||[];
+   let cur=myPicked.length?myPicked[0]:0;
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" style="margin-bottom:8px;gap:10px" id="netTabs"></div>
+     <p style="font-weight:800;color:var(--accent-ink);margin:6px 0 4px">正在折：<span id="curName" style="color:var(--accent)">${nets[cur].name}</span> —— 这张纸能不能折成立方体？</p>
+     <div class="stage-3d" id="st5" style="min-height:470px">
+       <div id="fit5" style="transform-style:preserve-3d">
+         <div class="cube3" id="cb5" style="width:${S}px;height:${S}px"></div></div></div>
+     <div style="max-width:760px;width:100%;margin:6px 0">
+       <div style="display:flex;justify-content:space-between;font-weight:800;margin-bottom:6px"><span>摊平</span><span>折起</span></div>
+       <input type="range" id="rng5" min="0" max="100" value="0" style="width:100%">
+       <button class="mini-btn" id="replayClash" style="margin-top:10px">重看两面怎么撞上的</button></div>
+     <div class="status-bar" id="foldStatus" style="max-width:760px"></div></div>`;
+   const cube=zone.querySelector("#cb5"),st=zone.querySelector("#foldStatus"),rng=zone.querySelector("#rng5");
+   const tabs=zone.querySelector("#netTabs");
+   nets.forEach((n,i)=>{
+     const b=document.createElement("button");
+     b.className="mini-btn";b.dataset.i=i;
+     b.textContent=n.name+(myPicked.includes(i)?" · 我选过":"");
+     b.onclick=()=>{cur=i;rng.value=0;zone.querySelector("#curName").textContent=n.name;
+       [...tabs.children].forEach(x=>x.style.fontWeight=x.dataset.i===String(cur)?"900":"600");
+       applyFit(0);render(0);sfx("click");};
+     tabs.appendChild(b);
+   });
+   function render(progress){
+     const net=nets[cur],rootId=net.coords[0].id;
+     const fold=netFold(net.coords,rootId,S,progress);
+     const clashIds=new Set(fold.clash.flat());
+     const pair=fold.clash[0]||[];
+     cube.innerHTML="";
+     fold.order.forEach(id=>{
+       const isClash=clashIds.has(id);
+       const edge=isClash?(id===pair[0]?"6px solid #dc2626":"6px solid #1d4ed8"):"2px solid #fff";
+       const el=document.createElement("div");
+       el.style.cssText=`position:absolute;left:50%;top:50%;width:${S}px;height:${S}px;margin:${-h}px 0 0 ${-h}px;background:${pal[id]};border:${edge};border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:30px;color:#155e75;backface-visibility:visible;transform:${fold.res[id].css};${isClash?"box-shadow:0 0 24px rgba(220,38,38,.55);":""}`;
+       el.textContent=id;
+       cube.appendChild(el);
+     });
+     applyFit(progress);
+     if(progress<.02){st.textContent="这是一张摊平的纸。抓滑块往右拖，把它折起来。";return;}
+     if(fold.clash.length){
+       st.textContent=`折到这里，面 ${pair.join(" 和 ")} 抢同一个位置、叠在一起了，所以${net.name}折不成。把滑块往左拖，可以倒回去。`;
+     }else if(progress>.98){
+       st.textContent=`折成了！六个面各就各位、谁也不压谁，所以${net.name}能折成立方体。`;
+     }else{
+       st.textContent="折起一半了，继续往右拖；注意看有没有面要往同一个位置去。";
+     }
+   }
+   rng.addEventListener("input",()=>render(rng.value/100));
+   rng.addEventListener("change",()=>sfx("click"));
+   zone.querySelector("#replayClash").onclick=()=>{
+     if(nets[cur].good){toast("这张能折成，没有面撞在一起。");sfx("click");return;}
+     st.scrollIntoView({block:"center"});
+     rng.value=95;render(.95);sfx("good");
+     st.textContent="看，一个面正绕回来，快到另一个面的位置了。再往右拖一点点，看它们叠上。";
+   };
+   let vrx=-55,vry=-18,rd=false,px0=0,py0=0;
+   const stage=zone.querySelector("#st5"),fit=zone.querySelector("#fit5");
+   function applyFit(progress){
+     const net=nets[cur];
+     let R=0;
+     const f=netFold(net.coords,net.coords[0].id,S,progress);
+     f.order.forEach(id=>{const c=f.res[id].c;R=Math.max(R,Math.hypot(c[0],c[1],c[2]));});
+     R+=Math.hypot(h,h);
+     const availW=stage.clientWidth-14,availH=stage.clientHeight-14;
+     const k=Math.min(availW,availH)/(2*R);
+     fit.style.transform=`scale(${k})`;
+   }
+   stage.addEventListener("mousedown",e=>{rd=true;px0=e.clientX;py0=e.clientY;e.preventDefault();});
+   window.addEventListener("mousemove",e=>{if(!rd)return;
+     vry+=(e.clientX-px0)*.5;vrx-=(e.clientY-py0)*.5;vrx=Math.max(-85,Math.min(85,vrx));
+     px0=e.clientX;py0=e.clientY;
+     cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;});
+   window.addEventListener("mouseup",()=>rd=false);
+   cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;
+   [...tabs.children].forEach(x=>x.style.fontWeight=x.dataset.i===String(cur)?"900":"600");
+   applyFit(0);render(0);
+   window.addEventListener("resize",()=>applyFit(+rng.value/100));
+ },
+ buildReflect(zone,ctx){
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才选</h4><p>${ctx.guess.unsure?"我不确定":("图 "+ctx.guess.picked.map(i=>i+1).join("、"))}</p></div>
+     <div class="col"><h4>怎么自己判断</h4><p>别记答案，每张纸都拖滑块折一遍：六个面能各就各位、谁也不压谁，就折得成；只要有两个面抢同一个位置，就折不成。</p></div></div>
+     <p class="muted" style="margin-top:16px">回到上面，把四张纸都亲手折一遍，再看看你最初的选择要不要改。</p>`;
+ },
+ observe:"切换四张纸，分别拖滑块折一遍，看哪张能折成、哪张有面撞在一起。",
+ summary:"立方体有很多种展开图；能不能折成，要看折起来有没有面重叠。",
+ condition:"田字形、一条线超过4个面只是经验线索，不是完整规则，最终以折叠是否重叠为准。"
+};
+
+/* ---------- E6 找对面 ---------- */
+E.E6={
+ CROSS:[
+   {id:"2",x:0,y:-1},
+   {id:"4",x:-1,y:0},{id:"1",x:0,y:0},{id:"3",x:1,y:0},
+   {id:"5",x:0,y:1},
+   {id:"6",x:0,y:2}
+ ],
+ OPP:{1:"6",2:"5",3:"4",4:"3",5:"2",6:"1"},
+ PAIRS:[["1","6"],["2","5"],["3","4"]],
+ missMsg:"先选一个你认为对面的，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   zone.innerHTML=`<p class="muted">这是一个立方体的展开图。先看看，<b>面 1 背对的那面</b>是哪个？</p>
+     <div id="cross" style="display:flex;justify-content:center"></div>
+     <p style="font-weight:800;margin:18px 0 8px">我认为面 1 的对面是：</p>
+     ${choiceHtml(["面 2","面 3","面 5","面 6"],{unsure:true})}`;
+   zone.querySelector("#cross").innerHTML=netHtml(this.CROSS,40);
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const S=150,h=S/2,CROSS=this.CROSS;
+   const pal={1:"#67e8f9",2:"#86efac",3:"#fcd34d",4:"#fdba74",5:"#f9a8d4",6:"#fda4af"};
+   let pairIdx=0;
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" style="margin-bottom:8px" id="pairTabs"></div>
+     <div class="stage-3d" id="st6" style="min-height:460px">
+       <div id="fit6" style="transform-style:preserve-3d">
+         <div class="cube3" id="cb6" style="width:${S}px;height:${S}px"></div></div></div>
+     <div style="max-width:760px;width:100%;margin:6px 0">
+       <div style="display:flex;justify-content:space-between;font-weight:800;margin-bottom:6px"><span>摊平</span><span>折起</span></div>
+       <input type="range" id="rng6" min="0" max="100" value="0" style="width:100%"></div>
+     <div class="status-bar" id="s6" style="max-width:760px"></div></div>`;
+   const cube=zone.querySelector("#cb6"),st=zone.querySelector("#s6"),rng=zone.querySelector("#rng6");
+   const tabs=zone.querySelector("#pairTabs"),stage=zone.querySelector("#st6"),fit=zone.querySelector("#fit6");
+   this.PAIRS.forEach((p,i)=>{
+     const b=document.createElement("button");b.className="mini-btn";b.dataset.i=i;
+     b.textContent=`看 ${p[0]} 和 ${p[1]}`;
+     b.onclick=()=>{pairIdx=i;[...tabs.children].forEach((x,j)=>x.style.outline=j===i?"3px solid var(--accent)":"none");render(+rng.value/100);sfx("click");};
+     tabs.appendChild(b);
+   });
+   function render(progress){
+     const fold=netFold(CROSS,"1",S,progress);
+     const curPair=E.E6.PAIRS[pairIdx],hi=new Set(curPair);
+     cube.innerHTML="";
+     fold.order.forEach(id=>{
+       const isHi=hi.has(id);
+       const el=document.createElement("div");
+       el.style.cssText=`position:absolute;left:50%;top:50%;width:${S}px;height:${S}px;margin:${-h}px 0 0 ${-h}px;background:${pal[id]};border:${isHi?"6px solid #f59e0b":"2px solid #fff"};border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:30px;color:#155e75;backface-visibility:visible;transform:${fold.res[id].css};${isHi?"box-shadow:0 0 22px rgba(245,158,11,.6);":""}`;
+       el.textContent=id;
+       cube.appendChild(el);
+     });
+     applyFit(progress);
+     if(progress>.98)st.textContent=`折起来了：面 ${curPair[0]} 和面 ${curPair[1]} 各在一边、背对背，是一对对面。`;
+     else if(progress<.02)st.textContent="纸摊着，先记住面1的位置，再拖滑块折起来。";
+     else st.textContent="折起一半，继续拖，看金色的两个面最后是不是背对背。";
+   }
+   function applyFit(progress){
+     let R=0;
+     const f=netFold(CROSS,"1",S,progress);
+     f.order.forEach(id=>{const c=f.res[id].c;R=Math.max(R,Math.hypot(c[0],c[1],c[2]));});
+     R+=Math.hypot(h,h);
+     const k=Math.min(stage.clientWidth-14,stage.clientHeight-14)/(2*R);
+     fit.style.transform=`scale(${k})`;
+   }
+   rng.addEventListener("input",()=>render(+rng.value/100));
+   rng.addEventListener("change",()=>sfx("click"));
+   [...tabs.children][0].style.outline="3px solid var(--accent)";
+   render(0);
+   window.addEventListener("resize",()=>applyFit(+rng.value/100));
+ },
+ buildReflect(zone,ctx){
+   const v=ctx.guess;
+   const mt=v==="unsure"?"我不确定":["面2","面3","面5","面6"][v];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>折起来看到</h4><p>面 1 的对面是面 6。在展开图里，它俩中间隔着面 5，正好"隔一个"。</p></div></div>
+     <p class="muted" style="margin-top:16px">小线索：同一行或同一列，中间隔一个正方形的，往往是对面；拿不准就折起来看，最稳。</p>`;
+ },
+ observe:"拖滑块折起来，看面1和面6背对背，再切换另外两对。",
+ summary:"立方体有三对相对的面；展开图里隔一个、折起来背对背的，就是对面。",
+ condition:"隔一个只是快速线索，最终要以折叠后是否背对背为准。"
+};
+
+/* ---------- E7 长方体展开 ---------- */
+E.E7={
+ FACES:[
+   {id:"A",w:150,h:100,color:"#67e8f9"},
+   {id:"C",w:50,h:100,par:"A",dir:"right",color:"#86efac"},
+   {id:"D",w:50,h:100,par:"A",dir:"left",color:"#fcd34d"},
+   {id:"B",w:150,h:50,par:"A",dir:"up",color:"#fdba74"},
+   {id:"E",w:150,h:50,par:"A",dir:"down",color:"#f9a8d4"},
+   {id:"F",w:150,h:100,par:"E",dir:"down",color:"#fda4af"}
+ ],
+ OPP:{A:"F",F:"A",C:"D",D:"C",B:"E",E:"B"},
+ ROUNDS:["A","B","C"],
+ missMsg:"先点一个面，或者选'我不确定'。",
+ buildGuess(zone,ctx){
+   const faces=this.FACES;
+   zone.innerHTML=`<p class="muted">这是一个长盒子拆开的纸（长、宽、高不一样，所以有三种大小的面）。</p>
+     <p style="font-weight:800;margin:8px 0 14px">我在正面 <b>A</b> 贴了一颗星，想在它<b>背对的那面</b>也贴一颗。你会把第二颗星贴在哪个面？</p>
+     <div id="netHost" style="display:flex;justify-content:center"></div>
+     <p style="font-weight:800;margin:16px 0 8px">拿不准？</p>${choiceHtml([],{unsure:true})}`;
+   let pick=null;
+   function draw(){
+     const host=zone.querySelector("#netHost");host.innerHTML="";
+     host.appendChild(boxNetHtml(faces,{clickable:true,star:"A",picked:pick,onPick:id=>{pick=id;sfx("click");draw();}}));
+   }
+   draw();
+   const u=zone.querySelector(".choice-grid .choice");
+   u.onclick=()=>{u.classList.toggle("sel");sfx("click");};
+   ctx.data.pick=()=>pick;
+   ctx.data.unsure=()=>u.classList.contains("sel");
+ },
+ isComplete(ctx){return !!ctx.data.pick()||ctx.data.unsure();},
+ collect(ctx){return {pick:ctx.data.pick(),unsure:ctx.data.unsure()};},
+ restoreGuess(zone,g){
+   if(g.pick){const el=zone.querySelector('#netHost [data-id="'+g.pick+'"]');if(el)el.click();}
+   if(g.unsure){const u=zone.querySelector(".choice-grid .choice");if(u)u.click();}
+ },
+ buildLab(zone,ctx){
+   const faces=this.FACES,opp=this.OPP,rounds=this.ROUNDS;
+   const by={};faces.forEach(f=>by[f.id]=f);
+   const savedLab=(state.progress[ctx.lv.id]&&state.progress[ctx.lv.id].lab)||null;
+   let round=savedLab?savedLab.round:0,anchor=rounds[round],
+     pick=savedLab?savedLab.pick:((ctx.guess&&ctx.guess.pick)||null),
+     progress=savedLab?savedLab.progress:0,sideMode=false;
+   function saveLab(){
+     state.progress[ctx.lv.id]=state.progress[ctx.lv.id]||{guess:ctx.guess};
+     state.progress[ctx.lv.id].lab={round,pick,progress,sideMode};save();
+   }
+   zone.innerHTML=`<div class="scene">
+     <p style="font-weight:800;color:var(--accent-ink);margin:2px 0 6px" id="task7"></p>
+     <div class="stage-3d" id="st7" style="min-height:450px"><div class="cube3" id="cb7"></div></div>
+     <div style="max-width:760px;width:100%;margin:6px 0">
+       <div style="display:flex;justify-content:space-between;font-weight:800;margin-bottom:6px"><span>摊平</span><span>折起</span></div>
+       <input type="range" id="rng7" min="0" max="100" value="${Math.round(progress*100)}" style="width:100%"></div>
+     <div class="quick-views" style="margin-bottom:8px;gap:10px">
+       <button class="mini-btn" id="flatten7">摊开重选</button>
+       <button class="mini-btn" id="turn7">转半圈看两颗星</button>
+       <button class="mini-btn" id="side7">从侧面看两颗星</button>
+       <button class="btn btn-primary" id="nextPair7" style="display:none">再试一对</button>
+       <button class="mini-btn" id="done7" style="display:none">我探索过了</button></div>
+     <div class="status-bar" id="foldStatus7" style="max-width:760px"></div></div>`;
+   const cube=zone.querySelector("#cb7"),st=zone.querySelector("#foldStatus7"),rng=zone.querySelector("#rng7"),
+     task=zone.querySelector("#task7"),nextBtn=zone.querySelector("#nextPair7"),
+     doneBtn=zone.querySelector("#done7");
+   function render(){
+     const folded=boxFold(faces,progress),order=folded.order;
+     cube.innerHTML="";
+     const flat=progress<.02;
+     order.forEach(id=>{
+       const f=by[id],isPick=pick===id,isAnchor=anchor===id;
+       const adjacent=(!flat&&progress>=.98&&pick&&pick!==opp[anchor]&&(id===anchor||id===pick));
+       const el=document.createElement("div");
+       el.style.cssText=`position:absolute;left:50%;top:50%;width:${f.w}px;height:${f.h}px;margin:${-f.h/2}px 0 0 ${-f.w/2}px;background:${f.color};border:${adjacent?"6px solid #f59e0b":(isPick?"4px solid #0e7490":"2px solid #fff")};border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px;color:#155e75;backface-visibility:visible;transform:${folded.res[id].css};${sideMode?"opacity:.45;":""}${flat&&id!==anchor?"cursor:pointer;":""}`;
+       el.textContent=f.id;el.dataset.id=id;
+       if(isAnchor)el.appendChild(starSvg());
+       if(isPick)el.appendChild(starSvg(28,"#0284c7"));
+       if(flat&&id!==anchor)el.onclick=()=>{pick=id;sfx("click");render();saveLab();};
+       cube.appendChild(el);
+     });
+     task.textContent=`第 ${round+1} 轮（共 ${rounds.length} 轮）：面 ${anchor} 上有金色星，它背对的那面是哪个？`;
+     if(flat){st.textContent=pick?`蓝色星现在贴在 ${pick}。拖滑块往右，把盒子合起来看。`:"纸摊着，点一个面贴蓝色星。";return;}
+     if(progress<.98){st.textContent="折起一半了，两颗星一直跟着自己的面。继续往右拖。";return;}
+     if(!pick){st.textContent="还没贴蓝色星。点'摊开重选'，再点一个面。";return;}
+     if(pick===opp[anchor]){
+       doneBtn.style.display="inline-flex";
+       if(round===rounds.length-1){st.textContent=`对了！${anchor} 和 ${pick} 背对背、中间隔着整个盒子。三对相对的面你都找齐了。`;nextBtn.style.display="none";}
+       else{st.textContent=`对了！${anchor} 和 ${pick} 背对背，这就是一对相对的面。点'再试一对'继续。`;nextBtn.style.display="inline-flex";}
+       sfx("good");
+     }else{
+       st.textContent=`看亮黄色这条边：${anchor} 和 ${pick} 共用这条边、是挨着的，不是背对背。点'摊开重选'再试。`;
+     }
+   }
+   rng.addEventListener("input",()=>{progress=rng.value/100;render();});
+   rng.addEventListener("change",()=>{sfx("click");saveLab();});
+   zone.querySelector("#flatten7").onclick=()=>{rng.value=0;progress=0;render();saveLab();sfx("click");};
+   let vrx=-52,vry=-18,rd=false,px0=0,py0=0;
+   zone.querySelector("#turn7").onclick=()=>{vry+=180;cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;sfx("click");};
+   zone.querySelector("#side7").onclick=()=>{
+     sideMode=!sideMode;
+     if(sideMode){vrx=-8;vry=-92;cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;}
+     render();
+     if(sideMode)st.textContent="盒子变透明了。从侧面看，两颗星各在一边、中间隔着整个盒子，这就是背对背。";
+     else st.textContent="已恢复原样。";
+     saveLab();sfx("click");
+   };
+   nextBtn.onclick=()=>{round++;anchor=rounds[round];pick=null;rng.value=0;progress=0;nextBtn.style.display="none";doneBtn.style.display="none";render();saveLab();sfx("good");};
+   doneBtn.onclick=()=>{state.done[ctx.lv.id]=true;saveLab();save();sfx("good");backHome();};
+   const stage=zone.querySelector("#st7");
+   stage.addEventListener("mousedown",e=>{rd=true;px0=e.clientX;py0=e.clientY;e.preventDefault();});
+   window.addEventListener("mousemove",e=>{if(!rd)return;
+     vry+=(e.clientX-px0)*.5;vrx-=(e.clientY-py0)*.5;vrx=Math.max(-85,Math.min(85,vrx));
+     px0=e.clientX;py0=e.clientY;cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;});
+   window.addEventListener("mouseup",()=>rd=false);
+   cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;
+   render();
+ },
+ buildReflect(zone,ctx){
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我一开始贴在</h4><p>${ctx.guess.unsure?"我不确定":("面 "+ctx.guess.pick)}</p></div>
+     <div class="col"><h4>怎么自己判断</h4><p>把盒子折起来看：两颗星各在一边、中间隔着整个盒子，就是背对背；两个面共用一条边，就是挨着。</p></div></div>
+     <p class="muted" style="margin-top:16px">在这个长盒子里，一样大的面正好是一对，不过到底对不对，还得折起来看位置。</p>`;
+ },
+ observe:"点面贴第二颗星，拖滑块合起，看两颗星是背对背还是挨着。",
+ summary:"长方体相对的面大小相等、在展开图里隔开；是不是相对，折起来看位置最准。",
+ condition:"先靠大小猜，再靠折叠验证：背对背、中间隔着整个盒子才是相对的面。"
+};
+
+/* ---------- E8 线动成面 ---------- */
+E.E8={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   const fig=`<svg viewBox="0 0 600 200" style="width:100%;max-width:680px;margin:6px 0">
+     <line x1="160" y1="125" x2="440" y2="125" stroke="#155e75" stroke-width="9" stroke-linecap="round"/>
+     <line x1="160" y1="125" x2="160" y2="62" stroke="var(--accent)" stroke-width="3" stroke-dasharray="6 6"/>
+     <line x1="440" y1="125" x2="440" y2="62" stroke="var(--accent)" stroke-width="3" stroke-dasharray="6 6"/>
+     <path d="M300 108 L300 52 M291 63 L300 52 L309 63" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"/>
+     <text x="300" y="178" text-anchor="middle" font-size="19" font-weight="800" fill="#155e75">线段往上扫，会扫出什么？</text></svg>`;
+   zone.innerHTML=`<p class="muted">一条线段像刷子一样扫过去，你猜会扫出什么形状？</p>
+     ${fig}
+     ${choiceHtml(["长方形","平行四边形","只是一条更长的线","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views">
+       <button class="mini-btn" data-v="0">垂直拖</button>
+       <button class="mini-btn" data-v="1">斜着拖</button>
+       <button class="mini-btn" data-v="2">顺着线拖</button>
+       <button class="mini-btn" data-v="3">回正</button></div>
+     <svg viewBox="0 0 600 360" id="svg8" style="width:100%;max-width:760px">
+       <polygon id="sweep" fill="var(--soft)" stroke="var(--accent)" stroke-width="2"></polygon>
+       <line id="seg0" x1="120" y1="220" x2="360" y2="220" stroke="var(--accent-ink)" stroke-width="6" stroke-linecap="round"/>
+       <line id="seg1" x1="120" y1="220" x2="360" y2="220" stroke="var(--accent)" stroke-width="6" stroke-linecap="round"/>
+     </svg>
+     <div class="status-bar" id="s8" style="max-width:720px">拖动把手，或点上面的方向按钮。</div></div>`;
+   const svg=zone.querySelector("#svg8"),A={x:120,y:220},B={x:360,y:220};
+   const vec={x:0,y:0};
+   const sweep=zone.querySelector("#sweep"),seg1=zone.querySelector("#seg1"),st=zone.querySelector("#s8");
+   function render(){
+     const ax=A.x+vec.x,ay=A.y+vec.y,bx=B.x+vec.x,by=B.y+vec.y;
+     sweep.setAttribute("points",`${A.x},${A.y} ${B.x},${B.y} ${bx},${by} ${ax},${ay}`);
+     seg1.setAttribute("x1",ax);seg1.setAttribute("y1",ay);seg1.setAttribute("x2",bx);seg1.setAttribute("y2",by);
+     let msg;
+     if(Math.abs(vec.x)<2&&Math.abs(vec.y)<2)msg="还没移动，先拖一拖。";
+     else if(Math.abs(vec.x)<2)msg="垂直平移：扫出一个长方形。";
+     else if(Math.abs(vec.y)<2)msg="顺着线段方向平移：没有形成面，只是一条更长的线。";
+     else msg="斜着平移：扫出一个平行四边形。";
+     st.textContent=msg;
+   }
+   svgHandle(svg,{x:300,y:220},p=>{vec.x=p.x-300;vec.y=p.y-220;
+     vec.x=Math.max(-150,Math.min(150,vec.x));vec.y=Math.max(-150,Math.min(120,vec.y));render();});
+   const presets=[[0,-120],[120,-120],[120,0],[0,0]];
+   zone.querySelectorAll(".mini-btn").forEach((b,i)=>b.onclick=()=>{
+     vec.x=presets[i][0];vec.y=presets[i][1];
+     const h=svg.querySelector("circle[stroke='#fff']");h.setAttribute("cx",300+vec.x);h.setAttribute("cy",220+vec.y);
+     sfx("click");render();});
+   render();
+ },
+ buildReflect(zone,ctx){
+   const mine=ctx.guess;const mt=mine==="unsure"?"我不确定":(["长方形","平行四边形","更长的线","我不确定"][mine]);
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>动手后看到</h4><p>方向不同，结果不同：垂直拖出长方形，斜拖出平行四边形，顺着线拖只变长、不成面。</p></div></div>`;
+ },
+ observe:"分别点'垂直拖、斜着拖、顺着线拖'，看扫出的形状有什么不一样。",
+ summary:"线段平移会扫出面；移动方向不同，扫出的形状不同。",
+ condition:"垂直平移出长方形，斜向平移出平行四边形；沿线段自身方向平移不形成面。"
+};
+
+/* ---------- E9 面动成体（四种） ---------- */
+E.E9={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   const fig=`<svg viewBox="0 0 600 220" style="width:100%;max-width:680px;margin:6px 0">
+     <line x1="180" y1="180" x2="180" y2="60" stroke="#155e75" stroke-width="7" stroke-linecap="round"/>
+     <line x1="180" y1="180" x2="360" y2="180" stroke="var(--accent)" stroke-width="7" stroke-linecap="round"/>
+     <line x1="360" y1="180" x2="180" y2="60" stroke="var(--accent)" stroke-width="7" stroke-linecap="round"/>
+     <path d="M250 175 A70 70 0 0 1 185 110" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="6 6"/>
+     <text x="270" y="212" text-anchor="middle" font-size="18" font-weight="800" fill="#155e75">绕这条竖直的直角边转一周</text></svg>`;
+   zone.innerHTML=`<p class="muted">一个直角三角形，绕着它的一条直角边转一周，会得到什么？</p>
+     ${fig}
+     ${choiceHtml(["圆柱","圆锥","球","圆台"],{unsure:true})}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" style="margin-bottom:8px" id="shapeTabs"></div>
+     <div class="quick-views" style="margin-bottom:4px">
+       <button class="mini-btn" id="play9">转一圈</button>
+       <button class="mini-btn" id="showFull">直接看成品</button></div>
+     <div id="host9" style="width:100%;min-height:460px"></div>
+     <div class="status-bar" id="s9" style="max-width:780px">先选一个平面图形，再点'转一圈'。</div></div>`;
+   const host=zone.querySelector("#host9"),st=zone.querySelector("#s9"),tabs=zone.querySelector("#shapeTabs");
+   (async()=>{
+     const stage=await ThreeStage.create(host,{height:460,camX:4.2,camY:2.6,camZ:5.2});
+     const THREE=stage.THREE,V2=THREE.Vector2;
+     const axis=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,7.2,12),
+       new THREE.MeshBasicMaterial({color:0x9ca3af}));
+     stage.scene.add(axis);
+     const DEFS={
+       cylinder:{label:"长方形 → 圆柱",pts:()=>[new V2(0,-1.5),new V2(1.8,-1.5),new V2(1.8,1.5),new V2(0,1.5)]},
+       cone:{label:"直角三角形 → 圆锥",pts:()=>[new V2(0,-1.5),new V2(1.8,-1.5),new V2(0,1.5)]},
+       sphere:{label:"半圆 → 球",pts:()=>{const a=[];for(let i=0;i<=24;i++){const th=-Math.PI/2+Math.PI*i/24;
+         a.push(new V2(1.6*Math.cos(th),1.6*Math.sin(th)));}return a;}},
+       frustum:{label:"直角梯形 → 圆台",pts:()=>[new V2(0,-1.5),new V2(2,-1.5),new V2(1.1,1.5),new V2(0,1.5)]}
+     };
+     const keys=Object.keys(DEFS);
+     let cur="cone",flatMesh=null,sweepMesh=null,anim=null,t=0;
+     function makeFlat(pts){
+       const shape=new THREE.Shape(pts);
+       const geo=new THREE.ShapeGeometry(shape);
+       return new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x0891b2,transparent:true,opacity:.32,side:THREE.DoubleSide,roughness:.5}));
+     }
+     function makeSweep(pts,phi){
+       return new THREE.Mesh(new THREE.LatheGeometry(pts,56,0,phi),
+         new THREE.MeshStandardMaterial({color:0x22d3ee,transparent:true,opacity:.5,side:THREE.DoubleSide,roughness:.45,metalness:.05}));
+     }
+     function clearMesh(m){if(!m)return;
+       m.geometry.dispose();(Array.isArray(m.material)?m.material:[m.material]).forEach(x=>x.dispose());
+       if(m.parent)m.parent.remove(m);}
+     function loadShape(k,phi){
+       const pts=DEFS[k].pts();
+       clearMesh(flatMesh);clearMesh(sweepMesh);
+       flatMesh=makeFlat(pts);sweepMesh=makeSweep(pts,phi);
+       stage.scene.add(flatMesh);stage.scene.add(sweepMesh);
+       stage.render();
+     }
+     keys.forEach((k,i)=>{
+       const b=document.createElement("button");b.className="mini-btn";b.textContent=DEFS[k].label;
+       b.onclick=()=>{stopAnim();cur=k;t=0;[...tabs.children].forEach(x=>x.style.outline="none");
+         b.style.outline="3px solid var(--accent)";loadShape(k,0);
+         st.textContent=DEFS[k].label+"：蓝色是那张纸，点'转一圈'看它扫出什么。";sfx("click");};
+       tabs.appendChild(b);
+     });
+     function stopAnim(){if(anim){cancelAnimationFrame(anim);anim=null;}}
+     function play(){
+       stopAnim();t=0;const dur=2600,t0=performance.now(),pts=DEFS[cur].pts();
+       function frame(now){const p=Math.min(1,(now-t0)/dur);t=p;
+         clearMesh(sweepMesh);sweepMesh=makeSweep(pts,p*Math.PI*2);stage.scene.add(sweepMesh);
+         if(p>=1){anim=null;st.textContent=DEFS[cur].label+"，转满一周，扫出来的就是这个立体。";sfx("good");}
+         else{anim=requestAnimationFrame(frame);}}
+       anim=requestAnimationFrame(frame);
+     }
+     zone.querySelector("#play9").onclick=()=>{sfx("good");play();};
+     zone.querySelector("#showFull").onclick=()=>{stopAnim();
+       const pts=DEFS[cur].pts();clearMesh(sweepMesh);sweepMesh=makeSweep(pts,Math.PI*2);stage.scene.add(sweepMesh);
+       st.textContent="这是转满一周后的成品。";sfx("click");stage.render();};
+     [...tabs.children][1].style.outline="3px solid var(--accent)";
+     loadShape("cone",0);
+   })().catch(e=>{st.textContent="3D 暂时没加载出来，检查网络后刷新试试。";});
+ },
+ buildReflect(zone,ctx){
+   const v=ctx.guess;const mt=v==="unsure"?"我不确定":["圆柱","圆锥","球","圆台"][v];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>四个一起看</h4><p>长方形转出圆柱，直角三角形转出圆锥，半圆绕直径转出球，直角梯形转出圆台。</p></div></div>
+     <p class="muted" style="margin-top:16px">都是同一件事：平面图形绕着一条边（轴）转一周，扫过的地方就拼成一个立体。</p>`;
+ },
+ observe:"切换四个图形，各点'转一圈'，看分别扫出什么立体。",
+ summary:"面动成体：长方形→圆柱、三角形→圆锥、半圆→球、梯形→圆台。",
+ condition:"绕着的那条边是轴；离轴最远的距离决定立体的半径，转满一周才封口。"
+};
+
+/* ---------- E10 截面探秘 ---------- */
+E.E10={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   zone.innerHTML=`<p class="muted">拿一把很薄的"刀"（一个平面）去切一个正方体，切出来的那个面叫截面。<b>截面最多能是几边形？</b></p>
+     <svg viewBox="0 0 600 200" style="width:100%;max-width:640px;margin:6px 0">
+       <rect x="180" y="50" width="180" height="130" rx="10" fill="rgba(8,145,178,.12)" stroke="var(--accent)" stroke-width="4"/>
+       <ellipse cx="270" cy="115" rx="120" ry="34" fill="rgba(245,158,11,.18)" stroke="#f59e0b" stroke-width="3"/>
+       <text x="270" y="120" text-anchor="middle" font-size="18" font-weight="800" fill="#9a3412">斜着切一刀</text></svg>
+     ${choiceHtml(["四边形","五边形","六边形","七边形"],{unsure:true})}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ section(n,d,THREE){
+   const verts=[];
+   for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])verts.push(new THREE.Vector3(x,y,z));
+   const edges=[];
+   for(let i=0;i<verts.length;i++)for(let j=i+1;j<verts.length;j++){
+     const a=verts[i],b=verts[j];
+     if(Math.abs(a.x-b.x)+Math.abs(a.y-b.y)+Math.abs(a.z-b.z)===2)edges.push([a,b]);
+   }
+   const raw=[];
+   for(const [a,b] of edges){
+     const fa=n.dot(a)-d,fb=n.dot(b)-d;
+     if(Math.abs(fa)<1e-9)raw.push(a.clone());
+     else if(fa*fb<0){const t=fa/(fa-fb);raw.push(a.clone().lerp(b,t));}
+   }
+   const pts=[];
+   raw.forEach(p=>{if(!pts.some(q=>q.distanceTo(p)<.02))pts.push(p);});
+   if(pts.length<3)return pts;
+   const center=new THREE.Vector3();pts.forEach(p=>center.add(p));center.multiplyScalar(1/pts.length);
+   let u=new THREE.Vector3(1,0,0);if(Math.abs(n.dot(u))>.9)u=new THREE.Vector3(0,1,0);
+   u.sub(n.clone().multiplyScalar(n.dot(u))).normalize();
+   const w=new THREE.Vector3().crossVectors(n,u).normalize();
+   const ang=p=>Math.atan2(p.clone().sub(center).dot(w),p.clone().sub(center).dot(u));
+   pts.sort((a,b)=>ang(a)-ang(b));
+   return pts;
+ },
+ buildLab(zone,ctx){
+   const norm=a=>{const l=Math.hypot(...a);return a.map(x=>x/l);};
+   const PRESETS=[
+     {name:"三角形",n:norm([1,1,1]),d:1.2},
+     {name:"正方形",n:[1,0,0],d:0},
+     {name:"长方形",n:norm([.8,.6,0]),d:0},
+     {name:"梯形",n:norm([3,2,1]),d:.65},
+     {name:"五边形",n:norm([2,1,1]),d:.35},
+     {name:"六边形",n:norm([1,1,1]),d:0}
+   ];
+   let cur=5,nArr=PRESETS[cur].n,d=PRESETS[cur].d;
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" style="margin-bottom:8px" id="presetTabs"></div>
+     <div id="host10" style="width:100%;min-height:460px"></div>
+     <div style="max-width:720px;width:100%;margin:8px 0">
+       <div style="display:flex;justify-content:space-between;font-weight:800"><span>刀往这边推</span><span id="dVal"></span></div>
+       <input type="range" id="rng10" min="-170" max="170" value="0" style="width:100%"></div>
+     <div class="status-bar" id="s10" style="max-width:780px"></div></div>`;
+   const host=zone.querySelector("#host10"),st=zone.querySelector("#s10"),tabs=zone.querySelector("#presetTabs"),rng=zone.querySelector("#rng10");
+   (async()=>{
+     const stage=await ThreeStage.create(host,{height:460,camX:3.6,camY:2.6,camZ:4.4});
+     const THREE=stage.THREE;
+     let n=new THREE.Vector3(...nArr);
+     const cube=new THREE.Mesh(new THREE.BoxGeometry(2,2,2),
+       new THREE.MeshStandardMaterial({color:0x0891b2,transparent:true,opacity:.14,side:THREE.DoubleSide}));
+     stage.scene.add(cube);
+     const cubeEdges=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2,2,2)),
+       new THREE.LineBasicMaterial({color:0x155e75}));
+     stage.scene.add(cubeEdges);
+     let planeMesh=null,secGroup=null;
+     const nameByCount=c=>c===3?"三角形":c===4?"四边形":c===5?"五边形":c===6?"六边形":(""+c+"个点");
+     function render(){
+       if(planeMesh){planeMesh.geometry.dispose();planeMesh.material.dispose();stage.scene.remove(planeMesh);}
+       if(secGroup){secGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});stage.scene.remove(secGroup);}
+       planeMesh=new THREE.Mesh(new THREE.PlaneGeometry(5,5),
+         new THREE.MeshStandardMaterial({color:0xf59e0b,transparent:true,opacity:.2,side:THREE.DoubleSide}));
+       planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),n);
+       planeMesh.position.copy(n.clone().multiplyScalar(d));
+       stage.scene.add(planeMesh);
+       const pts=E.E10.section(n,d,THREE);
+       secGroup=new THREE.Group();
+       if(pts.length>=3){
+         const c=new THREE.Vector3();pts.forEach(p=>c.add(p));c.multiplyScalar(1/pts.length);
+         const pos=[],idx=[];
+         pts.forEach(p=>pos.push(p.x,p.y,p.z));
+         for(let i=0;i<pts.length;i++){idx.push(0,i,(i+1)%pts.length);}
+         const g=new THREE.BufferGeometry();
+         g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
+         g.setIndex(idx);
+         secGroup.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0xf59e0b,transparent:true,opacity:.45,side:THREE.DoubleSide})));
+         const linePts=pts.map(p=>p.clone());linePts.push(pts[0].clone());
+         secGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(linePts),new THREE.LineBasicMaterial({color:0xdc2626})));
+         pts.forEach(p=>secGroup.add(new THREE.Mesh(new THREE.SphereGeometry(.05,12,12),new THREE.MeshBasicMaterial({color:0xdc2626}))));
+       }
+       stage.scene.add(secGroup);
+       zone.querySelector("#dVal").textContent=d.toFixed(2);
+       const cnt=pts.length;
+       if(cnt<3)st.textContent="这一刀还没切到正方体，拖滑块或换个切法。";
+       else st.textContent=`现在切出的是${nameByCount(cnt)}，有 ${cnt} 条边——平面和 ${cnt} 个面相交。`;
+       stage.render();
+     }
+     PRESETS.forEach((p,i)=>{
+       const b=document.createElement("button");b.className="mini-btn";b.textContent=p.name;
+       b.onclick=()=>{cur=i;n=new THREE.Vector3(...p.n);d=p.d;
+         rng.value=Math.round(d*100);
+         [...tabs.children].forEach(x=>x.style.outline="none");b.style.outline="3px solid var(--accent)";
+         render();sfx("click");};
+       tabs.appendChild(b);
+     });
+     rng.addEventListener("input",()=>{d=+rng.value/100;render();});
+     rng.addEventListener("change",()=>sfx("click"));
+     [...tabs.children][cur].style.outline="3px solid var(--accent)";
+     rng.value=Math.round(d*100);
+     render();
+   })().catch(e=>{st.textContent="3D 暂时没加载出来，检查网络后刷新试试。";});
+ },
+ buildReflect(zone,ctx){
+   const v=ctx.guess;const mt=v==="unsure"?"我不确定":["四边形","五边形","六边形","七边形"][v];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>切出来看</h4><p>截面有几条边，要看平面和正方体的几个面相交。正方体一共 6 个面，最多和 6 个面都相交，所以截面<b>最多是六边形</b>，切不出七边形。</p></div></div>
+     <p class="muted" style="margin-top:16px">三角形、四边形、五边形、六边形都切得出来；切一个角是三角形，过中心斜着切能切出六边形。</p>`;
+ },
+ observe:"六个预设都点一遍，再拖滑块，看截面边数怎么变。",
+ summary:"截面边数等于平面与正方体相交的面数；正方体6个面，截面最多六边形。",
+ condition:"平面最多和6个面相交，所以最多6条边；要切出对应形状，刀的角度和位置都得对。"
+};
+
+/* ---------- E11 线段最短（平面 2D） ---------- */
+E.E11={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   const fig=`<svg viewBox="0 0 600 180" style="width:100%;max-width:680px;margin:6px 0">
+     <circle cx="150" cy="95" r="11" fill="var(--accent)"/>
+     <text x="150" y="70" text-anchor="middle" font-size="22" font-weight="900" fill="var(--accent-ink)">A</text>
+     <circle cx="450" cy="95" r="11" fill="var(--accent)"/>
+     <text x="450" y="70" text-anchor="middle" font-size="22" font-weight="900" fill="var(--accent-ink)">B</text>
+     <text x="300" y="160" text-anchor="middle" font-size="19" font-weight="800" fill="var(--accent-ink)">怎么连最短？</text></svg>`;
+   zone.innerHTML=`<p class="muted">纸上有两个点 A、B，要画一条线把它们连起来。<b>你猜怎么连最短？</b></p>
+     ${fig}
+     ${choiceHtml(["直直连一条线段","中间拐个弯再连"],{unsure:true})}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const A={x:140,y:170},B={x:460,y:170};
+   zone.innerHTML=`<div class="scene"><div class="quick-views" id="tabs11">
+     <button class="mini-btn">直连</button>
+     <button class="mini-btn">自己拖拐点</button></div>
+     <svg viewBox="0 0 600 320" id="svg11" style="width:100%;max-width:780">
+       <line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="var(--accent-ink)" stroke-width="3" stroke-dasharray="7 7" opacity=".5"/>
+       <path id="bend11" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+       <circle cx="${A.x}" cy="${A.y}" r="10" fill="var(--accent)"/>
+       <circle cx="${B.x}" cy="${B.y}" r="10" fill="var(--accent)"/>
+       <text x="${A.x-24}" y="${A.y+7}" font-size="20" font-weight="900" fill="var(--accent-ink)">A</text>
+       <text x="${B.x+14}" y="${B.y+7}" font-size="20" font-weight="900" fill="var(--accent-ink)">B</text>
+     </svg>
+     <div class="status-bar" id="s11" style="max-width:780"></div></div>`;
+   const svg=zone.querySelector("#svg11"),st=zone.querySelector("#s11"),bend=zone.querySelector("#bend11"),tabs=zone.querySelector("#tabs11");
+   const dist=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);
+   const directLen=dist(A,B);
+   let mode="direct",P={x:300,y:170};
+   const handle=svgHandle(svg,{x:300,y:170},pt=>{pt.x=300;pt.y=Math.max(45,Math.min(170,pt.y));P={x:pt.x,y:pt.y};draw();},"#f59e0b");
+   const handleEl=svg.querySelector(".svg-handle");
+   function setActive(i){[...tabs.children].forEach((b,j)=>{b.style.background=j===i?"var(--accent)":"#fff";b.style.color=j===i?"#fff":"var(--accent)";});}
+   function draw(){
+     if(mode==="direct"){
+       handleEl.style.display="none";
+       bend.setAttribute("d","");
+       st.textContent=`直连一条线段，长度 ${directLen.toFixed(0)}，这是最短的。`;
+     }else{
+       handleEl.style.display="block";
+       bend.setAttribute("d",`M${A.x} ${A.y} L${P.x} ${P.y} L${B.x} ${B.y}`);
+       const t=dist(A,P)+dist(P,B);
+       st.textContent=`两段加起来 ${t.toFixed(0)}，比直连的 ${directLen.toFixed(0)} 长 ${(t-directLen).toFixed(0)}。把拐点往上拖，还会更长。`;
+     }
+   }
+   [...tabs.children][0].onclick=()=>{mode="direct";setActive(0);sfx("click");draw();};
+   [...tabs.children][1].onclick=()=>{mode="bend";setActive(1);sfx("click");draw();};
+   setActive(0);draw();
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["直连一条线段","拐弯再连"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>动手后看到</h4><p>直连最短；拐点一离开这条直线，两段加起来就比直连长。这就是三角形里"两边之和大于第三边"。</p></div></div>`;
+ },
+ observe:"点'自己拖拐点'，把拐点往上拖，看两段长度怎么变。",
+ summary:"平面上两点之间，线段最短；一拐弯，路就变长。",
+ condition:"直连长度固定；拐点离直线越远，两段加起来越长。"
+};
+
+/* ---------- E12 空间修路（3D，迁移 L11） ---------- */
+E.E12={
+ missMsg:"先选一个猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   const fig=`<svg viewBox="0 0 600 180" style="width:100%;max-width:680px;margin:6px 0">
+     <circle cx="150" cy="95" r="12" fill="var(--accent)"/>
+     <text x="150" y="70" text-anchor="middle" font-size="22" font-weight="900" fill="var(--accent-ink)">A</text>
+     <circle cx="450" cy="95" r="12" fill="var(--accent)"/>
+     <text x="450" y="70" text-anchor="middle" font-size="22" font-weight="900" fill="var(--accent-ink)">B</text>
+     <text x="300" y="160" text-anchor="middle" font-size="19" font-weight="800" fill="var(--accent-ink)">空中怎么修最近？</text></svg>`;
+   zone.innerHTML=`<p class="muted">空中有两个点 A、B，要修一条路把它们连起来。<b>你猜怎么修最近？</b></p>
+     ${fig}
+     ${choiceHtml(["直直连一条线","拐个弯再连"],{unsure:true})}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const A={x:-1,y:0,z:0},B={x:1,y:0,z:0};
+   zone.innerHTML=`<div class="scene"><div class="quick-views" id="tabs12">
+     <button class="mini-btn">直连</button>
+     <button class="mini-btn">自己拖拐点</button></div>
+     <div id="host12" style="width:100%;min-height:420px"></div>
+     <div id="dragBox12" style="display:none;width:100%;max-width:560px;margin:2px 0 6px">
+       <div style="display:flex;justify-content:space-between;font-weight:800;color:var(--accent-ink)"><span>拐点在直路上</span><span>拖远一点</span></div>
+       <input type="range" id="rng12" min="0" max="100" value="0" style="width:100%"></div>
+     <div class="status-bar" id="s12" style="max-width:760"></div></div>`;
+   const st=zone.querySelector("#s12"),host=zone.querySelector("#host12"),tabs=zone.querySelector("#tabs12");
+   const dragBox=zone.querySelector("#dragBox12"),rng=zone.querySelector("#rng12"),btns=[...tabs.children];
+   function setActive(b){btns.forEach(x=>{x.style.background="#fff";x.style.color="var(--accent)";});b.style.background="var(--accent)";b.style.color="#fff";}
+   const dist=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y,p.z-q.z);
+   let mode="direct",h=0,stage=null,roadGroup=null;
+   function totalLen(path){let t=0;for(let i=0;i<path.length-1;i++)t+=dist(path[i],path[i+1]);return t;}
+   function rod3D(p,q,color){
+     const v1=new stage.THREE.Vector3(p.x,p.y,p.z),v2=new stage.THREE.Vector3(q.x,q.y,q.z);
+     const dir=new stage.THREE.Vector3().subVectors(v2,v1),len=dir.length();
+     const mesh=new stage.THREE.Mesh(
+       new stage.THREE.CylinderGeometry(.045,.045,len,16),
+       new stage.THREE.MeshStandardMaterial({color,roughness:.55,metalness:.05}));
+     mesh.position.copy(v1).add(v2).multiplyScalar(.5);
+     mesh.quaternion.setFromUnitVectors(new stage.THREE.Vector3(0,1,0),dir.normalize());
+     return mesh;
+   }
+   function ball3D(p,color,r=.11){
+     const mesh=new stage.THREE.Mesh(new stage.THREE.SphereGeometry(r,24,16),
+       new stage.THREE.MeshStandardMaterial({color,roughness:.45,metalness:.05}));
+     mesh.position.set(p.x,p.y,p.z);return mesh;
+   }
+   function label3D(text,p,color){
+     const cv=document.createElement("canvas");cv.width=128;cv.height=64;
+     const c=cv.getContext("2d");c.font="bold 44px sans-serif";c.fillStyle=color;
+     c.textAlign="center";c.textBaseline="middle";c.fillText(text,64,32);
+     const sp=new stage.THREE.Sprite(new stage.THREE.SpriteMaterial({map:new stage.THREE.CanvasTexture(cv),transparent:true}));
+     sp.position.set(p.x,p+.3,p.z);sp.scale.set(.55,.28,1);return sp;
+   }
+   function clearRoad(){
+     if(!roadGroup)return;
+     roadGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();
+       if(o.material){if(o.material.map)o.material.map.dispose();o.material.dispose();}});
+     stage.scene.remove(roadGroup);roadGroup=null;
+   }
+   function draw(){
+     if(!stage)return;
+     clearRoad();
+     roadGroup=new stage.THREE.Group();
+     const P={x:0,y:h,z:0};
+     const path=mode==="direct"?[A,B]:[A,P,B];
+     for(let i=0;i<path.length-1;i++)roadGroup.add(rod3D(path[i],path[i+1],0xea580c));
+     roadGroup.add(ball3D(A,0xea580c),ball3D(B,0xea580c));
+     roadGroup.add(label3D("A",A,"#9a3412"),label3D("B",B,"#9a3412"));
+     if(mode==="bend"){roadGroup.add(ball3D(P,0xf59e0b,.1));roadGroup.add(label3D("拐",P,"#b45309"));}
+     stage.scene.add(roadGroup);
+     const t=totalLen(path);
+     st.textContent=mode==="direct"
+       ?`直连长度 = ${t.toFixed(1)}，这是最短的。`
+       :(h<.02
+         ?`拐点在直路上，长度 ${t.toFixed(1)}，和直连一样。`
+         :`拐点拖离直路，长度 = ${t.toFixed(1)}——拖得越远越长。`);
+     stage.render();
+   }
+   btns[0].onclick=()=>{mode="direct";setActive(btns[0]);dragBox.style.display="none";sfx("click");draw();};
+   btns[1].onclick=()=>{mode="bend";setActive(btns[1]);dragBox.style.display="block";sfx("click");draw();};
+   rng.addEventListener("input",()=>{h=rng.value/100;draw();});
+   setActive(btns[0]);
+   (async()=>{
+     stage=await ThreeStage.create(host,{height:420,camX:3,camY:2.2,camZ:3.2});
+     stage.controls.target.set(0,.3,0);
+     stage.controls.minDistance=2.5;stage.controls.maxDistance=9;
+     stage.controls.maxPolarAngle=Math.PI*.55;
+     stage.controls.update();
+     activeStages.add(stage);
+     draw();
+   })().catch(()=>{host.insertAdjacentHTML("afterend",
+     '<div class="status-bar">3D 暂时没加载出来，检查网络后刷新试试。</div>');});
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["直直连一条线","拐个弯再连"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>实测长度</h4><p>直连最短；把拐点拖离直路，长度就变大。转动视角时，同一条路的长度数字不变。</p></div></div>`;
+ },
+ observe:"点'自己拖拐点'，再旋转视角，看长度数字变不变。",
+ summary:"空中两点之间，直连的线段最短；把路绕开都会变长。",
+ condition:"长度按真实三维距离算，不是屏幕投影；沿表面走在实验13练。"
+};
+
+/* ---------- E13 台阶展开（CSS 3D，迁移 L12） ---------- */
+function stair13Geom(f){
+  const a=36,b=36,N=6,seq=[];
+  for(let i=0;i<N;i++){seq.push({type:"V",len:b});seq.push({type:"T",len:a});}
+  let P=[0,0],ang=0;const list=[];
+  seq.forEach(fc=>{
+    if(fc.type==="V")ang-=f;else ang+=f;
+    list.push({type:fc.type,len:fc.len,P:[...P],ang});
+    P=[P[0]+fc.len*Math.cos(ang*Math.PI/180),P[1]+fc.len*Math.sin(ang*Math.PI/180)];
+  });
+  return list;
+}
+function stair13Build(cube,opts){
+  const f=opts.f,d=opts.d,offX=opts.offX,offY=opts.offY;
+  cube.innerHTML="";
+  const list=stair13Geom(f);
+  list.forEach(g=>{
+    const w=document.createElement("div");
+    w.style.cssText="position:absolute;left:50%;top:50%;transform-style:preserve-3d";
+    const face=document.createElement("div");
+    const col=g.type==="V"?"#f97316":"#fdba74";
+    face.style.cssText=`position:absolute;left:0;top:0;width:${g.len}px;height:${d}px;background:${col};border:2px solid #fff;border-radius:8px;transform-origin:0 0;transform:rotateX(90deg)`;
+    w.style.transform=`translate3d(${g.P[0]+offX}px,${g.P[1]+offY}px,0) rotateZ(${g.ang}deg)`;
+    w.appendChild(face);cube.appendChild(w);
+  });
+  if(opts.dots){
+    const mk=color=>{const el=document.createElement("div");
+      el.style.cssText=`position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:${color};border:3px solid #fff;transform-style:preserve-3d`;
+      cube.appendChild(el);return el;};
+    const sd=mk("#dc2626"),ed=mk("#ea580c");
+    const last=list[list.length-1],first=list[0];
+    sd.style.transform=`translate3d(${last.P[0]+last.len*Math.cos(last.ang*Math.PI/180)+offX}px,${last.P[1]+last.len*Math.sin(last.ang*Math.PI/180)+offY}px,6px)`;
+    ed.style.transform=`translate3d(${first.P[0]+offX}px,${first.P[1]+offY}px,6px)`;
+  }
+}
+E.E13={
+ missMsg:"先选一个猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   zone.innerHTML=`<p class="muted">长方形纸片折成 6 级台阶，从<b>右上方的起点</b>走到<b>左下方的终点</b>，怎么走最近？</p>
+     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center">
+       <div style="background:var(--soft);border:2.5px solid var(--accent);border-radius:10px;padding:10px 22px;font-size:19px;font-weight:800;color:var(--accent-ink)">一张长方形纸片</div>
+       <svg width="46" height="26" viewBox="0 0 46 26"><line x1="2" y1="13" x2="34" y2="13" stroke="var(--accent)" stroke-width="4"/><path d="M28 4 L40 13 L28 22" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+       <div style="perspective:1300px;width:300px;height:270px;position:relative">
+         <div class="cube3" id="guessCube13" style="position:absolute;left:50%;top:50%;transform-style:preserve-3d;transform:rotateX(-32deg) rotateY(-20deg)"></div>
+       </div>
+     </div>
+     <p style="text-align:center;font-weight:800;color:var(--accent-ink);margin:4px 0 10px">红点是起点（右上），橙点是终点（左下）</p>
+     ${choiceHtml(["沿台阶一上一下走","把台阶展开，连一条直线","随便绕","我不确定"])}`;
+   stair13Build(zone.querySelector("#guessCube13"),{f:90,d:100,offX:-108,offY:108,dots:true});
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const total=432,offX=-108,offY=108;
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" style="margin-bottom:8px" id="tabs13">
+       <button class="mini-btn">折回立体台阶</button>
+       <button class="mini-btn">摊成一张平面</button></div>
+     <p style="font-weight:800;color:var(--accent-ink);margin:2px 0 8px">拖下面的滑块，亲手把立体台阶展开、再折回去；拖空白处转着看。</p>
+     <div class="stage-3d" id="st13" style="min-height:520px"><div class="cube3" id="cb13" style="transform-style:preserve-3d"></div></div>
+     <label style="font-weight:800;color:var(--accent-ink);margin-top:8px">展开 / 折回（拖这里）</label>
+     <input type="range" id="rng13" min="0" max="90" value="90" style="width:82%;max-width:640px">
+     <div class="status-bar" id="s13" style="max-width:760px"></div></div>`;
+   const cube=zone.querySelector("#cb13"),st=zone.querySelector("#s13"),rng=zone.querySelector("#rng13"),tabs=zone.querySelector("#tabs13");
+   function render(f){
+     stair13Build(cube,{f,d:150,offX,offY,dots:true});
+     if(f<2)st.textContent=`摊平了：红起点到橙终点正好一条直线，长度 ${total}，这就是最短走法。`;
+     else if(f>88)st.textContent=`立体台阶：从右上到左下贴着踏面和立面走，长度也是 ${total}。`;
+     else st.textContent=`展开中……不管怎么折，可走的长度一直是 ${total}，摊平后就是一条直线。`;
+   }
+   rng.oninput=()=>{sfx("click");render(+rng.value);};
+   [...tabs.children][0].onclick=()=>{rng.value=90;render(90);sfx("click");};
+   [...tabs.children][1].onclick=()=>{rng.value=0;render(0);sfx("click");};
+   let vrx=-32,vry=-20,rd=false,px0=0,py0=0;
+   const stageEl=zone.querySelector("#st13");
+   stageEl.addEventListener("mousedown",e=>{if(e.target.closest("#cb13")&&e.target!==stageEl)return;
+     rd=true;px0=e.clientX;py0=e.clientY;e.preventDefault();});
+   window.addEventListener("mousemove",e=>{if(!rd)return;
+     vry+=(e.clientX-px0)*.5;vrx-=(e.clientY-py0)*.5;vrx=Math.max(-85,Math.min(85,vrx));
+     px0=e.clientX;py0=e.clientY;cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;});
+   window.addEventListener("mouseup",()=>rd=false);
+   cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;
+   render(90);
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["沿台阶走","展开连直线","随便绕","我不确定"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>动手后看到</h4><p>把台阶摊平，红起点到橙终点正好一条直线，长度和折回时贴着台阶走完全一样，都是 432。</p></div></div>`;
+ },
+ observe:"拖滑块把台阶摊平，看两点连成一条直线，再折回去。",
+ summary:"台阶摊平后两点能直接连一条直线，折回去还是同一条路，长度不变。",
+ condition:"固定可走的踏面和立面；摊平后两点连成的直线，就是立体台阶上贴着走的那条路。"
+};
+
+/* ---------- E14 垂线段最短（迁移 L17，改橙色） ---------- */
+E.E14={
+ missMsg:"先做你的选择，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   const fig=`<svg viewBox="0 0 600 210" style="width:100%;max-width:680px;margin:6px 0">
+     <line x1="100" y1="165" x2="500" y2="165" stroke="var(--accent)" stroke-width="6" stroke-linecap="round"/>
+     <circle cx="300" cy="60" r="12" fill="var(--accent)"/>
+     <text x="300" y="40" text-anchor="middle" font-size="22" font-weight="900" fill="var(--accent-ink)">P</text>
+     <line x1="300" y1="60" x2="300" y2="165" stroke="var(--accent)" stroke-width="3" stroke-dasharray="6 6"/>
+     <text x="300" y="202" text-anchor="middle" font-size="19" font-weight="800" fill="var(--accent-ink)">从 P 走到直线上哪点最近？</text></svg>`;
+   zone.innerHTML=`<p class="muted">点 P 到一条直线，你猜从 P 走到直线上哪一点最近？</p>
+     ${fig}
+     ${choiceHtml(["随便哪点都一样","和直线成直角的那个点","离屏幕最近的点","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const Ly=270,P={x:300,y:150},Hx=300;
+   zone.innerHTML=`<div class="scene">
+     <svg viewBox="0 0 600 340" id="svg14" style="width:100%;max-width:780">
+       <line x1="${Hx}" y1="${P.y}" x2="${Hx}" y2="${Ly}" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 6" opacity=".4"/>
+       <line x1="70" y1="${Ly}" x2="530" y2="${Ly}" stroke="var(--accent-ink)" stroke-width="5" stroke-linecap="round"/>
+       <line id="seg14" x1="${P.x}" y1="${P.y}" stroke="var(--accent)" stroke-width="4"/>
+       <path id="ra14" d="M${Hx} ${Ly-18} L${Hx+18} ${Ly-18} L${Hx+18} ${Ly}" fill="none" stroke="#db2777" stroke-width="2.5" style="display:none"/>
+       <circle cx="${P.x}" cy="${P.y}" r="9" fill="var(--accent)"/>
+       <text x="${P.x-18}" y="${P.y+6}" font-size="19" font-weight="800" fill="var(--accent-ink)">P</text>
+       <text id="len14" y="${Ly-12}" font-size="20" font-weight="900" fill="#9d174d" text-anchor="middle"></text>
+     </svg>
+     <p style="font-weight:800;color:var(--accent-ink);margin-top:8px">按住直线上的圆点，左右拖动</p>
+     <div class="status-bar" id="s14" style="max-width:740"></div></div>`;
+   const svg=zone.querySelector("#svg14"),st=zone.querySelector("#s14"),
+     seg=zone.querySelector("#seg14"),lenText=zone.querySelector("#len14"),ra=zone.querySelector("#ra14");
+   let q=420;
+   function draw(){
+     const len=Math.hypot(q-P.x,Ly-P.y),atH=Math.abs(q-Hx)<4;
+     seg.setAttribute("x2",q);seg.setAttribute("y2",Ly);
+     lenText.setAttribute("x",q);lenText.textContent=len.toFixed(0);
+     ra.style.display=atH?"block":"none";
+     if(atH)st.textContent=`落点在垂足，连线和直线成直角，长度 ${len.toFixed(0)}，这是最短的。`;
+     else st.textContent=`落点在这儿，长度 ${len.toFixed(0)}。左右拖一拖，看能不能找到更短的。`;
+   }
+   svgHandle(svg,{x:q,y:Ly},pt=>{q=Math.max(80,Math.min(520,pt.x));draw();},"#db2777");
+   draw();
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["都一样","成直角的点","屏幕最近","我不确定"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>拖落点看到</h4><p>落点在垂足时，连线和直线成 90°，长度最短；落点往两边走，连线都变长。这条最短的垂线段，长度就是点到直线的距离。</p></div></div>`;
+ },
+ observe:"拖直线上的落点左右走，看连线长度，找找最短的那个落点。",
+ summary:"直线外一点到直线的所有线段里，垂线段最短。",
+ condition:"垂线段长度就是点到直线的距离；落点离开垂足，两边的线段都变长。"
+};
+
+/* ---------- E15 中点与和差（新做） ---------- */
+E.E15={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   const fig=`<svg viewBox="0 0 600 180" style="width:100%;max-width:660px;margin:6px 0">
+     <line x1="140" y1="110" x2="460" y2="110" stroke="var(--accent-ink)" stroke-width="5" stroke-linecap="round"/>
+     <circle cx="300" cy="110" r="9" fill="#db2777"/>
+     <text x="130" y="100" font-size="20" font-weight="900" fill="var(--accent-ink)">A</text>
+     <text x="470" y="100" font-size="20" font-weight="900" fill="var(--accent-ink)">B</text>
+     <text x="300" y="92" text-anchor="middle" font-size="18" font-weight="900" fill="#9d174d">M</text>
+     <text x="300" y="160" text-anchor="middle" font-size="19" font-weight="800" fill="var(--accent-ink)">M 是中点，AB=10，AM=？</text></svg>`;
+   zone.innerHTML=`<p class="muted">线段 AB=10，M 是它的中点。<b>AM 等于几？</b></p>
+     ${fig}
+     ${choiceHtml(["5","10","20","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const A={x:100,y:160},B={x:500,y:160};
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" id="tabs15">
+       <button class="mini-btn">自由拖点 C</button>
+       <button class="mini-btn">把 C 放到中点</button></div>
+     <svg viewBox="0 0 600 280" id="svg15" style="width:100%;max-width:780">
+       <line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="var(--accent-ink)" stroke-width="5" stroke-linecap="round"/>
+       <text x="${A.x-16}" y="${A.y+7}" font-size="20" font-weight="900" fill="var(--accent-ink)">A</text>
+       <text x="${B.x+8}" y="${B.y+7}" font-size="20" font-weight="900" fill="var(--accent-ink)">B</text>
+       <text id="labAC" y="${A.y-28}" font-size="22" font-weight="900" fill="var(--accent)" text-anchor="middle"></text>
+       <text id="labCB" y="${A.y-28}" font-size="22" font-weight="900" fill="#db2777" text-anchor="middle"></text>
+     </svg>
+     <div class="status-bar" id="s15" style="max-width:780"></div></div>`;
+   const svg=zone.querySelector("#svg15"),st=zone.querySelector("#s15"),tabs=zone.querySelector("#tabs15");
+   const labAC=zone.querySelector("#labAC"),labCB=zone.querySelector("#labCB");
+   let C={x:300,y:160};
+   const handle=svgHandle(svg,{x:300,y:160},pt=>{pt.y=160;pt.x=Math.max(A.x,Math.min(B.x,pt.x));C={x:pt.x,y:160};draw();},"#db2777");
+   function draw(){
+     const ac=C.x-A.x,cb=B.x-C.x;
+     labAC.setAttribute("x",(A.x+C.x)/2);labAC.textContent="AC="+ac;
+     labCB.setAttribute("x",(C.x+B.x)/2);labCB.textContent="CB="+cb;
+     if(Math.abs(ac-cb)<1)st.textContent=`C 正好在中点：AC=CB=${ac}，都是 AB 的一半（AB=${ac+cb}）。`;
+     else st.textContent=`AC=${ac}，CB=${cb}，加起来 AC+CB=${ac+cb}，正好等于 AB，怎么拖都不变。`;
+   }
+   [...tabs.children][0].onclick=()=>{sfx("click");toast("直接拖那个圆点就行。");};
+   [...tabs.children][1].onclick=()=>{handle.set(300,160);C={x:300,y:160};sfx("click");draw();};
+   draw();
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["5","10","20"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>AM=${mt}</p></div>
+     <div class="col"><h4>拖出来看</h4><p>中点把线段分成相等的两段，每段都是整条的一半。点 C 在线段上哪儿，AC+CB 都等于 AB。</p></div></div>`;
+ },
+ observe:"拖圆点左右走，再点'放到中点'，看两段什么时候相等。",
+ summary:"中点把线段分成相等的两段，每段等于整条的一半；AC+CB 始终等于 AB。",
+ condition:"中点处 AC=CB=AB/2；C 在线段上移动，两段之和不变。"
+};
+
+/* ---------- E16 线段分类讨论（新做） ---------- */
+E.E16={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   const fig=`<svg viewBox="0 0 600 200" style="width:100%;max-width:680px;margin:6px 0">
+     <line x1="70" y1="120" x2="530" y2="120" stroke="#9ca3af" stroke-width="3" stroke-linecap="round"/>
+     <line x1="150" y1="120" x2="420" y2="120" stroke="var(--accent)" stroke-width="7" stroke-linecap="round"/>
+     <circle cx="150" cy="120" r="10" fill="var(--accent)"/>
+     <circle cx="420" cy="120" r="10" fill="var(--accent)"/>
+     <text x="140" y="105" font-size="20" font-weight="900" fill="var(--accent-ink)">A</text>
+     <text x="430" y="105" font-size="20" font-weight="900" fill="var(--accent-ink)">B</text>
+     <text x="300" y="175" text-anchor="middle" font-size="19" font-weight="800" fill="var(--accent-ink)">AB=10，BC=4，AC=？</text></svg>`;
+   zone.innerHTML=`<p class="muted">线段 AB=10，点 C 在<b>直线 AB 上</b>，且 BC=4。求 AC——先想想 C 能放在哪。</p>
+     ${fig}
+     ${choiceHtml(["AC=6","AC=14","两个都可能（6 或 14）","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const K=30,Ax=150,Bx=420; // 每单位30px，AB=270? 调整
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" id="tabs16">
+       <button class="mini-btn">C 在 B 左边（线段上）</button>
+       <button class="mini-btn">C 在 B 右边（延长线）</button></div>
+     <svg viewBox="0 0 600 280" id="svg16" style="width:100%;max-width:800">
+       <line x1="50" y1="140" x2="560" y2="140" stroke="#9ca3af" stroke-width="3" stroke-linecap="round"/>
+       <line id="ab16" x1="${Ax}" y1="140" x2="${Bx}" y2="140" stroke="var(--accent)" stroke-width="7" stroke-linecap="round"/>
+       <text id="tA" x="${Ax-12}" y="125" font-size="20" font-weight="900" fill="var(--accent-ink)">A</text>
+       <text id="tB" x="${Bx+6}" y="125" font-size="20" font-weight="900" fill="var(--accent-ink)">B</text>
+       <circle id="c16" cy="140" r="11" fill="#db2777"/>
+       <text id="tC" y="125" font-size="18" font-weight="900" fill="#9d174d" text-anchor="middle">C</text>
+       <text id="bc16" y="190" font-size="19" font-weight="800" fill="#9d174d" text-anchor="middle"></text>
+     </svg>
+     <div class="status-bar" id="s16" style="max-width:800"></div></div>`;
+   const tabs=zone.querySelector("#tabs16"),st=zone.querySelector("#s16");
+   const cEl=zone.querySelector("#c16"),tC=zone.querySelector("#tC"),bcTxt=zone.querySelector("#bc16");
+   // 用真实数值：AB=10、BC=4；屏幕坐标按 K=27（AB=270px）
+   const kpx=27;
+   function show(side){
+     [...tabs.children].forEach((b,i)=>{b.style.background=(i===side)?"var(--accent)":"#fff";b.style.color=(i===side)?"#fff":"var(--accent)";});
+     let cx,ac,expr;
+     if(side===0){cx=Bx-4*kpx;ac=10-4;expr="C 在线段上：AC = AB − BC = 10 − 4 = 6";}
+     else{cx=Bx+4*kpx;ac=10+4;expr="C 在 B 外侧延长线上：AC = AB + BC = 10 + 4 = 14";}
+     cEl.setAttribute("cx",cx);tC.setAttribute("x",cx);
+     bcTxt.setAttribute("x",(cx+Bx)/2);bcTxt.textContent="BC=4";
+     st.textContent=expr+"，所以 AC="+ac+"。";
+   }
+   [...tabs.children][0].onclick=()=>{sfx("click");show(0);};
+   [...tabs.children][1].onclick=()=>{sfx("click");show(1);};
+   show(0);
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["6","14","6 或 14"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>AC=${mt}</p></div>
+     <div class="col"><h4>两种摆法</h4><p>C 在线段上，AC=6；C 在 B 外侧的延长线上，AC=14。题目只说 C 在直线上、没说在线段上，所以<b>有两个答案</b>。</p></div></div>
+     <p class="muted" style="margin-top:14px">这类题要分情况想，先问自己：点能放在线段里，还是能放到延长线上？</p>`;
+ },
+ observe:"切换两个按钮，看 C 在 B 左边、右边时 AC 分别是多少。",
+ summary:"点 C 在直线上位置不确定，要分情况：在线段上 AC=6，在延长线上 AC=14。",
+ condition:"题目没限定 C 在线段上，就把线段上和延长线两种都考虑到。"
+};
+
+/* ---------- E17 度分秒（迁移 L14） ---------- */
+E.E17={
+ missMsg:"先做你的选择，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   const fig=`<svg viewBox="0 0 600 200" style="width:100%;max-width:680px;margin:6px 0">
+     <rect x="110" y="55" width="380" height="85" rx="8" fill="rgba(219,39,119,.10)" stroke="#db2777" stroke-width="3"/>
+     ${[0,1,2,3,4,5].map(i=>`<line x1="${110+63*(i+1)}" y1="55" x2="${110+63*(i+1)}" y2="140" stroke="#db2777" stroke-width="2" stroke-dasharray="5 5"/>`).join("")}
+     <text x="300" y="108" text-anchor="middle" font-size="22" font-weight="900" fill="#9d174d">1 度</text>
+     <text x="300" y="182" text-anchor="middle" font-size="19" font-weight="800" fill="#9d174d">这一格里面能分成多少份？</text></svg>`;
+   zone.innerHTML=`<p class="muted">先猜：1 度等于多少分？</p>
+     ${fig}
+     ${choiceHtml(["10 分","60 分","100 分","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   zone.innerHTML=`<div class="scene"><div class="quick-views" id="tabs17">
+     <button class="mini-btn">整度刻度</button>
+     <button class="mini-btn">打开分刻度</button>
+     <button class="mini-btn">再打开秒刻度</button></div>
+     <svg viewBox="0 0 600 240" id="svg17" style="width:100%;max-width:820px"></svg>
+     <div class="status-bar" id="s17" style="max-width:780">先看整度刻度。</div>
+     <div style="margin-top:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+       <label>小换算：</label><input id="in17" type="number" min="0" max="59" style="width:110px;font-size:20px;padding:10px;border-radius:10px;border:2px solid var(--accent)">
+       <span>分 = </span><span id="out17" style="font-weight:800">?</span></div></div>`;
+   const svg=zone.querySelector("#svg17"),st=zone.querySelector("#s17"),tabs=zone.querySelector("#tabs17");
+   const x0=50,x1=550,y=170,W=x1-x0;
+   const X=f=>x0+W*f;
+   const crumbs=["度","分","秒"];
+   function breadcrumb(lv){
+     let bc="";
+     crumbs.forEach((c,i)=>{bc+=`<tspan fill="${i===lv?"#db2777":"#9ca3af"}" font-weight="${i===lv?800:600}">${c}</tspan>`;
+       if(i<2)bc+=`<tspan fill="#9ca3af"> → </tspan>`;});
+     return `<text x="50" y="40" font-size="23">${bc}</text>`;
+   }
+   function highlight(lv){
+     if(lv===0){
+       return `<rect x="${X(0)}" y="${y-46}" width="${W}" height="42" rx="8" fill="rgba(219,39,119,.1)"/>
+         <text x="${X(0)+12}" y="${y-19}" text-anchor="start" font-size="16" font-weight="800" fill="#9d174d">这 1 度，放大看看</text>`;
+     }
+     if(lv===1){
+       const a=30/60,b=31/60;
+       return `<rect x="${X(a)}" y="${y-46}" width="${X(b)-X(a)}" height="42" rx="6" fill="rgba(219,39,119,.16)"/>
+         <text x="${X(a)+4}" y="${y-19}" text-anchor="start" font-size="12" font-weight="800" fill="#9d174d">这1分放大</text>`;
+     }
+     return "";
+   }
+   function draw(lv,grow){
+     let s=breadcrumb(lv);
+     s+=`<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="#9ca3af" stroke-width="3"/>`;
+     s+=highlight(lv);
+     if(lv===0){
+       s+=`<line x1="${x0}" y1="${y-30}" x2="${x0}" y2="${y}" stroke="var(--accent)" stroke-width="3"/>
+         <line x1="${x1}" y1="${y-30}" x2="${x1}" y2="${y}" stroke="var(--accent)" stroke-width="3"/>
+         <text x="${x0}" y="${y+28}" text-anchor="middle" font-size="20" font-weight="800" fill="#9d174d">30°</text>
+         <text x="${x1}" y="${y+28}" text-anchor="middle" font-size="20" font-weight="800" fill="#9d174d">31°</text>`;
+     }else{
+       const unit=lv===1?"′":"″";
+       for(let i=0;i<=60;i++){
+         const big=i%15===0,mid=i%5===0;const len=big?28:mid?21:13;
+         const gi=Math.max(0,Math.min(1,(grow-i/60)*4));
+         const x=X(i/60);
+         s+=`<line x1="${x}" y1="${y-len*gi}" x2="${x}" y2="${y}" stroke="var(--accent)" stroke-width="${big?2.6:1.6}"/>`;
+         if(big&&grow>0.85)s+=`<text x="${x}" y="${y+28}" text-anchor="middle" font-size="18" font-weight="800" fill="#9d174d">${i}${unit}</text>`;
+       }
+     }
+     const pr=lv===0?(30/60+30/3600):lv===1?(30.5/60):0.5;
+     const px=X(pr);
+     s+=`<line x1="${px}" y1="72" x2="${px}" y2="${y}" stroke="#dc2626" stroke-width="4"/>
+       <circle cx="${px}" cy="${y}" r="9" fill="#dc2626" stroke="#fff" stroke-width="2"/>`;
+     const plabel=lv===0?"30°和31°之间":lv===1?"30′和31′之间":"正好 30″";
+     s+=`<text x="${px}" y="63" text-anchor="middle" font-size="15" font-weight="800" fill="#dc2626">${plabel}</text>`;
+     svg.innerHTML=s;
+   }
+   let timer=null;
+   function animateIn(lv){
+     clearInterval(timer);
+     if(lv===0){draw(0,1);return;}
+     draw(lv,0);
+     const t0=Date.now();const dur=800;
+     timer=setInterval(()=>{
+       const t=Math.min(1,(Date.now()-t0)/dur);
+       draw(lv,t);
+       if(t>=1)clearInterval(timer);
+     },25);
+   }
+   const msgs=[
+     "整度只标 30°、31°，指针在中间，读不出到底是多少——点'打开分刻度'放大这一格。",
+     "这 1 度被切成 60 份，每份 1 分；指针在 30 分和 31 分中间，分也读不准，再打开秒刻度。",
+     "这 1 分又被切成 60 份，每份 1 秒；指针正落在 30 秒，完整读出来是 30°30′30″。这是角度，不是时间。"];
+   [...tabs.children][0].onclick=()=>{sfx("click");animateIn(0);st.textContent=msgs[0];};
+   [...tabs.children][1].onclick=()=>{sfx("click");animateIn(1);st.textContent=msgs[1];};
+   [...tabs.children][2].onclick=()=>{sfx("click");animateIn(2);st.textContent=msgs[2];};
+   animateIn(0);st.textContent=msgs[0];
+   zone.querySelector("#in17").oninput=e=>{let v=parseInt(e.target.value,10);
+     if(isNaN(v)){zone.querySelector("#out17").textContent="?";return;}
+     if(v<0||v>59){toast("分要在 0 到 59 之间。");v=Math.max(0,Math.min(59,v));e.target.value=v;}
+     zone.querySelector("#out17").textContent=(v/60).toFixed(2)+" 度";};
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["10 分","60 分","100 分","我不确定"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>细分后看到</h4><p>1°=60′，1′=60″，满 60 进一位；这是 60 进制的角度单位，不是时间。</p></div></div>`;
+ },
+ observe:"整度读不出时，点'打开分刻度'，看 1 度怎样分成 60 份。",
+ summary:"度下面有分、分下面有秒，1°=60′、1′=60″。",
+ condition:"这是角度的 60 进制（与时间进制相同，但不是时间单位）；先估计再细分读数。"
+};
+
+/* ---------- E19 角平分线（迁移 L15） ---------- */
+E.E19={
+ missMsg:"先做你的选择，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   const fig=`<svg viewBox="0 0 600 220" style="width:100%;max-width:680px;margin:6px 0">
+     <line x1="300" y1="180" x2="300" y2="50" stroke="#db2777" stroke-width="6" stroke-linecap="round"/>
+     <line x1="300" y1="180" x2="505" y2="180" stroke="#db2777" stroke-width="6" stroke-linecap="round"/>
+     <line x1="300" y1="180" x2="450" y2="88" stroke="#9d174d" stroke-width="4" stroke-dasharray="8 6"/>
+     <path d="M380 180 A80 80 0 0 0 300 100" fill="none" stroke="#db2777" stroke-width="2.5"/>
+     <text x="300" y="212" text-anchor="middle" font-size="19" font-weight="800" fill="#9d174d">平分线分出来的两半，有什么关系？</text></svg>`;
+   zone.innerHTML=`<p class="muted">先猜：角平分线把一个角分成两半，这两半有什么关系？</p>
+     ${fig}
+     ${choiceHtml(["两条边一样长","两个角一样大","没什么规律","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const TOTAL=80,R=180,O={x:180,y:270};
+   const px=d=>O.x+R*Math.cos(d*Math.PI/180);
+   const py=d=>O.y-R*Math.sin(d*Math.PI/180);
+   zone.innerHTML=`<div class="scene"><div class="quick-views">
+     <button class="mini-btn" id="auto19">自动平分</button>
+     <span style="font-size:18px;color:var(--accent-ink)">也可点中射线后用键盘 ← → 微调</span></div>
+     <svg viewBox="0 0 600 320" id="svg19" style="width:100%;max-width:760px" tabindex="0">
+       <path id="a19a" fill="var(--soft)"></path><path id="a19b" fill="#fbcfe8"></path>
+       <line id="e19a" x1="${O.x}" y1="${O.y}" x2="${px(0)}" y2="${py(0)}" stroke="var(--accent-ink)" stroke-width="6" stroke-linecap="round"/>
+       <line id="e19b" x1="${O.x}" y1="${O.y}" x2="${px(TOTAL)}" y2="${py(TOTAL)}" stroke="var(--accent-ink)" stroke-width="6" stroke-linecap="round"/>
+       <line id="bis19" x1="${O.x}" y1="${O.y}" x2="${px(0)}" y2="${py(0)}" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"/>
+       <circle cx="${O.x}" cy="${O.y}" r="8" fill="var(--accent)"/>
+     </svg><div class="status-bar" id="s19" style="max-width:720px"></div></div>`;
+   const svg=zone.querySelector("#svg19"),bis=zone.querySelector("#bis19"),st=zone.querySelector("#s19"),
+     a1=zone.querySelector("#a19a"),a2=zone.querySelector("#a19b");
+   let mid=20;
+   function arcPath(r,from,to){const f=-from*Math.PI/180,t=-to*Math.PI/180;
+     return `M${O.x+r*Math.cos(f)} ${O.y+r*Math.sin(f)} A${r} ${r} 0 0 1 ${O.x+r*Math.cos(t)} ${O.y+r*Math.sin(t)}`;}
+   function draw(){
+     const alpha=mid,beta=TOTAL-mid;
+     const rad=-mid*Math.PI/180;
+     bis.setAttribute("x2",O.x+R*Math.cos(rad));bis.setAttribute("y2",O.y+R*Math.sin(rad));
+     a1.setAttribute("d",arcPath(46,0,mid));a2.setAttribute("d",arcPath(46,mid,TOTAL));
+     const diff=Math.abs(alpha-beta);
+     if(diff<=0.6){st.textContent=`正好平分：两个角都是 ${alpha.toFixed(1)}°，差值 0。`;sfx("good");}
+     else st.textContent=`左边 ${alpha.toFixed(1)}°，右边 ${beta.toFixed(1)}°，差值 ${diff.toFixed(1)}°，还没正好平分。`;
+   }
+   const hp={x:O.x+120*Math.cos(20*Math.PI/180),y:O.y-120*Math.sin(20*Math.PI/180)};
+   svgHandle(svg,hp,pt=>{
+     let a=-Math.atan2(pt.y-O.y,pt.x-O.x)*180/Math.PI;a=Math.max(0,Math.min(TOTAL,a));mid=a;draw();},
+     "var(--accent)");
+   zone.querySelector("#auto19").onclick=()=>{mid=TOTAL/2;
+     const h=svg.querySelector("circle[stroke='#fff']");
+     h.setAttribute("cx",O.x+R*Math.cos(-mid*Math.PI/180));h.setAttribute("cy",O.y+R*Math.sin(-mid*Math.PI/180));
+     sfx("click");draw();};
+   svg.addEventListener("keydown",e=>{if(e.key==="ArrowLeft"){mid=Math.max(0,mid-0.5);draw();}
+     if(e.key==="ArrowRight"){mid=Math.min(TOTAL,mid+0.5);draw();}});
+   draw();
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["边等长","角一样大","没规律","我不确定"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>平分后看到</h4><p>平分线把一个角分成两个一样大的角，跟边画多长没关系；要正好平分，差值得是 0。</p></div></div>`;
+ },
+ observe:"拖射线，或用键盘微调，让两个角的差值变成 0。",
+ summary:"角平分线把一个角分成两个相等的角。",
+ condition:"相等的是两个角的度数，不是两边的长度；'很接近'不等于'正好平分'，以差值为0为准。"
+};
+
+/* ---------- E18 角的和差（借1当60，新做） ---------- */
+E.E18={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   zone.innerHTML=`<p class="muted">35°40′ + 25°35′，分加起来是 75 分。结果该怎么写？</p>
+     ${choiceHtml(["60°75′","61°15′","61°75′","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" id="tabs18">
+       <button class="mini-btn">加法：满60进1</button>
+       <button class="mini-btn">减法：借1当60</button></div>
+     <div id="stage18" style="width:100%;min-height:200px;display:flex;flex-direction:column;justify-content:center"></div>
+     <div style="margin-top:14px;display:flex;gap:10px;align-items:center;justify-content:center">
+       <button class="mini-btn" id="prev18">上一步</button>
+       <button class="mini-btn" id="next18">下一步</button></div>
+     <div class="status-bar" id="s18" style="max-width:840px;margin-top:14px"></div></div>`;
+   const stageEl=zone.querySelector("#stage18"),st=zone.querySelector("#s18"),tabs=zone.querySelector("#tabs18");
+   function blocks(n,hi){
+     let out='<div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;max-width:780px">';
+     for(let i=0;i<n;i++){
+       const on=hi&&i<hi;
+       out+=`<span style="width:23px;height:23px;border-radius:5px;background:${on?"#db2777":"var(--accent)"};opacity:${on?1:.5}"></span>`;
+     }
+     return out+'</div>';
+   }
+   const big=t=>`<div style="font-size:30px;font-weight:900;text-align:center;color:var(--accent-ink);margin:10px 0">${t}</div>`;
+   const addSteps=[
+     {h:big("35°40′ + 25°35′"),m:"度和分先分开加。"},
+     {h:big("60°75′")+blocks(75),m:"度 35+25=60，分 40+35=75。但分写成 75 不规范，分最多到 59。"},
+     {h:big("60°75′")+blocks(75,60),m:"75 分里有 60 分（高亮），满 60 就能进一位。"},
+     {h:big("61°15′")+blocks(15),m:"60 分换成 1 度，度 60+1=61；分剩 75−60=15。"},
+     {h:big("= 61°15′"),m:"这就是结果：分满 60，往度进 1。"}
+   ];
+   const subSteps=[
+     {h:big("60°10′ − 25°35′"),m:"先看分：10−35，不够减。"},
+     {h:big("60°10′")+blocks(10),m:"只有 10 分，要减 35 分，不够。"},
+     {h:big("59°70′")+blocks(70,60),m:"从度借 1（度 60→59），借来的 1 度当 60 分，分 10+60=70（高亮的是借来的60分）。"},
+     {h:big("59°70′")+blocks(35),m:"现在够减了：分 70−35=35。"},
+     {h:big("= 34°35′"),m:"度 59−25=34，分 35。结果 34°35′。"}
+   ];
+   let mode=0,step=0;
+   function render(){
+     const data=mode?subSteps:addSteps;
+     stageEl.innerHTML=data[step].h;
+     st.textContent=data[step].m;
+     [...tabs.children].forEach((b,i)=>{b.style.background=i===mode?"var(--accent)":"#fff";b.style.color=i===mode?"#fff":"var(--accent)";});
+   }
+   [...tabs.children].forEach((b,i)=>b.onclick=()=>{mode=i;step=0;sfx("click");render();});
+   zone.querySelector("#next18").onclick=()=>{const max=(mode?subSteps:addSteps).length-1;
+     if(step<max){step++;sfx("click");render();}else toast("这一步看完了，可切另一个。");};
+   zone.querySelector("#prev18").onclick=()=>{if(step>0){step--;sfx("click");render();}};
+   render();
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["60°75′","61°15′","61°75′"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>动手后看到</h4><p>分满 60 往度进 1；分不够减，从度借 1 当 60 分。跟十进制的"满十进一、借一当十"是一个道理，只是这里换成 60。</p></div></div>`;
+ },
+ observe:"加法、减法各点一遍，一步步看分怎么进位、怎么借。",
+ summary:"角度加减按 60 进制：分满60进1度，分不够借1度当60分。",
+ condition:"分的结果必须在 0～59；借位时度减1、分加60。"
+};
+
+/* ---------- E20 余角补角（新做） ---------- */
+E.E20={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   zone.innerHTML=`<p class="muted">一个角是 30°，它的<b>余角</b>（两个角加起来 90°）是多少？</p>
+     ${choiceHtml(["30°","60°","150°","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const O={x:300,y:230},R=170;
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" id="tabs20">
+       <button class="mini-btn">看余角（和=90°）</button>
+       <button class="mini-btn">看补角（和=180°）</button></div>
+     <svg viewBox="0 0 600 320" id="svg20" style="width:100%;max-width:780"></svg>
+     <div class="status-bar" id="s20" style="max-width:800"></div></div>`;
+   const svg=zone.querySelector("#svg20"),st=zone.querySelector("#s20"),tabs=zone.querySelector("#tabs20");
+   let alpha=30,mode=0;
+   const P=a=>({x:O.x+R*Math.cos(a*Math.PI/180),y:O.y-R*Math.sin(a*Math.PI/180)});
+   function wedge(from,to,fill){
+     const a=P(from),b=P(to);
+     return `<path d="M${O.x} ${O.y} L${a.x} ${a.y} A${R} ${R} 0 0 1 ${b.x} ${b.y} Z" fill="${fill}"/>`;
+   }
+   function render(){
+     let s="";
+     if(mode===0){
+       s+=wedge(0,alpha,"rgba(219,39,119,.55)")+wedge(alpha,90,"rgba(234,88,12,.45)");
+       const p=P(alpha);
+       s+=`<line x1="${O.x}" y1="${O.y}" x2="${p.x}" y2="${p.y}" stroke="#9d174d" stroke-width="4"/>
+         <line x1="${O.x}" y1="${O.y}" x2="${O.x}" y2="${O.y-R}" stroke="#9ca3af" stroke-width="3"/>
+         <line x1="${O.x}" y1="${O.y}" x2="${O.x+R}" y2="${O.y}" stroke="#9ca3af" stroke-width="3"/>
+         <text x="${P(alpha/2).x}" y="${P(alpha/2).y}" font-size="22" font-weight="900" fill="#9d174d" text-anchor="middle">${alpha}°</text>
+         <text x="${P((alpha+90)/2).x}" y="${P((alpha+90)/2).y}" font-size="22" font-weight="900" fill="#9a3412" text-anchor="middle">${90-alpha}°</text>`;
+       st.textContent=`${alpha}° + ${90-alpha}° = 90°，这两个角互为余角。`;
+     }else{
+       s+=wedge(0,alpha,"rgba(219,39,119,.55)")+wedge(alpha,180,"rgba(22,163,74,.4)");
+       const p=P(alpha);
+       s+=`<line x1="${O.x}" y1="${O.y}" x2="${p.x}" y2="${p.y}" stroke="#9d174d" stroke-width="4"/>
+         <line x1="${O.x-R}" y1="${O.y}" x2="${O.x+R}" y2="${O.y}" stroke="#9ca3af" stroke-width="3"/>
+         <text x="${P(alpha/2).x}" y="${P(alpha/2).y}" font-size="22" font-weight="900" fill="#9d174d" text-anchor="middle">${alpha}°</text>
+         <text x="${P((alpha+180)/2).x}" y="${P((alpha+180)/2).y}" font-size="22" font-weight="900" fill="#14532d" text-anchor="middle">${180-alpha}°</text>`;
+       st.textContent=`${alpha}° + ${180-alpha}° = 180°，这两个角互为补角。同一个角，补角比余角大 90°。`;
+     }
+     svg.innerHTML=s;
+     [...tabs.children].forEach((b,i)=>{b.style.background=i===mode?"var(--accent)":"#fff";b.style.color=i===mode?"#fff":"var(--accent)";});
+   }
+   const hp=P(alpha);
+   svgHandle(svg,hp,pt=>{
+     let a=Math.atan2(O.y-pt.y,pt.x-O.x)*180/Math.PI;
+     a=Math.max(2,Math.min(88,a));alpha=a;render();
+   },"var(--accent)");
+   [...tabs.children].forEach((b,i)=>b.onclick=()=>{mode=i;sfx("click");render();});
+   render();
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["30°","60°","150°"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>动手后看到</h4><p>和为 90° 互为余角，和为 180° 互为补角。角变大，它的余角、补角就变小，加起来始终不变。</p></div></div>
+     <p class="muted" style="margin-top:14px">同一个角的两个余角相等、两个补角相等——角定了，余角补角也就定了。</p>`;
+ },
+ observe:"拖射线改角度，再切余角、补角，看两个角加起来是多少。",
+ summary:"余角和为90°、补角和为180°；同角的余角相等、补角相等。",
+ condition:"互为余角/补角说的是两个角的度数关系，跟位置无关。"
+};
+
+/* ---------- E21 方位角（新做） ---------- */
+E.E21={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   zone.innerHTML=`<p class="muted">常说的"东北方向"，是<b>北偏东多少度</b>？</p>
+     ${choiceHtml(["30°","45°","60°","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const O={x:300,y:210},R=150;
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" style="max-width:820px" id="dirs21"></div>
+     <svg viewBox="0 0 600 380" id="svg21" style="width:100%;max-width:760;margin-top:10px"></svg>
+     <div class="status-bar" id="s21" style="max-width:820"></div></div>`;
+   const svg=zone.querySelector("#svg21"),st=zone.querySelector("#s21"),dirs=zone.querySelector("#dirs21");
+   let theta=45;
+   function describe(t){
+     t=((t%360)+360)%360;
+     if(t<1e-6)return"正北";
+     if(Math.abs(t-90)<1e-6)return"正东";
+     if(Math.abs(t-180)<1e-6)return"正南";
+     if(Math.abs(t-270)<1e-6)return"正西";
+     if(t<90)return`北偏东 ${t}°`;
+     if(t<180)return`南偏东 ${180-t}°`;
+     if(t<270)return`南偏西 ${t-180}°`;
+     return`北偏西 ${360-t}°`;
+   }
+   const EP=t=>({x:O.x+R*Math.sin(t*Math.PI/180),y:O.y-R*Math.cos(t*Math.PI/180)});
+   function render(){
+     const p=EP(theta);
+     let s=`
+       <line x1="${O.x}" y1="${O.y-R}" x2="${O.x}" y2="${O.y+R}" stroke="#d1d5db" stroke-width="3"/>
+       <line x1="${O.x-R}" y1="${O.y}" x2="${O.x+R}" y2="${O.y}" stroke="#d1d5db" stroke-width="3"/>
+       <text x="${O.x}" y="${O.y-R-12}" font-size="24" font-weight="900" fill="#9d174d" text-anchor="middle">北</text>
+       <text x="${O.x+R+14}" y="${O.y+8}" font-size="24" font-weight="900" fill="#9a3412" text-anchor="middle">东</text>
+       <text x="${O.x}" y="${O.y+R+28}" font-size="24" font-weight="900" fill="#14532d" text-anchor="middle">南</text>
+       <text x="${O.x-R-14}" y="${O.y+8}" font-size="24" font-weight="900" fill="#155e75" text-anchor="middle">西</text>
+       <line x1="${O.x}" y1="${O.y}" x2="${p.x}" y2="${p.y}" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"/>
+       <circle cx="${O.x}" cy="${O.y}" r="7" fill="var(--accent)"/>`;
+     if(theta<=90){
+       const ar=46,ap={x:O.x+ar*Math.sin(theta*Math.PI/180),y:O.y-ar*Math.cos(theta*Math.PI/180)};
+       s+=`<path d="M${O.x} ${O.y-ar} A${ar} ${ar} 0 0 1 ${ap.x} ${ap.y}" fill="none" stroke="#db2777" stroke-width="3"/>
+         <text x="${O.x+62}" y="${O.y-30}" font-size="20" font-weight="900" fill="#9d174d">${theta}°</text>`;
+     }
+     svg.innerHTML=s;
+     st.textContent="这个方向读作："+describe(theta)+"。";
+   }
+   const eight=[["北",0],["东北",45],["东",90],["东南",135],["南",180],["西南",225],["西",270],["西北",315]];
+   eight.forEach(([nm,t])=>{
+     const b=document.createElement("button");b.className="mini-btn";b.textContent=nm;
+     b.onclick=()=>{theta=t;sfx("click");render();};dirs.appendChild(b);
+   });
+   svgHandle(svg,EP(theta),pt=>{
+     let t=Math.atan2(pt.x-O.x,O.y-pt.y)*180/Math.PI;
+     if(t<0)t+=360;theta=Math.round(t);render();
+   },"var(--accent)");
+   render();
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["30°","45°","60°"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>罗盘上看</h4><p>上北下南、左西右东。东北正好在北和东中间，是北偏东 45°。方向角都从正北（或正南）开始，向东或西偏。</p></div></div>`;
+ },
+ observe:"点八个方向，再拖方向线，看方位角怎么读。",
+ summary:"方位角从正北/正南起算，向东或西偏；东北是北偏东45°。",
+ condition:"先分清南北基准，再看向东还是向西、偏多少度。"
+};
+
+/* ---------- E22 钟表夹角（新做） ---------- */
+E.E22={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   zone.innerHTML=`<p class="muted">3 点整的时候，时针和分针的夹角是多少度？</p>
+     ${choiceHtml(["30°","60°","90°","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   const O={x:300,y:230},R=160;
+   zone.innerHTML=`<div class="scene">
+     <div style="display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap">
+       <div style="text-align:center"><div style="font-weight:800">时</div>
+         <input type="number" id="h22" min="0" max="11" value="3" style="width:90px;font-size:22px;padding:8px;border:2px solid var(--accent);border-radius:10px;text-align:center"></div>
+       <div style="text-align:center"><div style="font-weight:800">分</div>
+         <input type="number" id="m22" min="0" max="59" value="0" style="width:90px;font-size:22px;padding:8px;border:2px solid var(--accent);border-radius:10px;text-align:center"></div></div>
+     <svg viewBox="0 0 600 380" id="svg22" style="width:100%;max-width:620px;margin-top:8px"></svg>
+     <div class="status-bar" id="s22" style="max-width:820"></div></div>`;
+   const svg=zone.querySelector("#svg22"),st=zone.querySelector("#s22");
+   const hIn=zone.querySelector("#h22"),mIn=zone.querySelector("#m22");
+   function hand(angle,len,color,w){
+     const a=(90-angle)*Math.PI/180;
+     return`<line x1="${O.x}" y1="${O.y}" x2="${O.x+len*Math.cos(a)}" y2="${O.y-len*Math.sin(a)}" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`;
+   }
+   function render(){
+     const h=+hIn.value||0,m=+mIn.value||0;
+     const minAng=m*6;                       // 分针 6°/分
+     const hourAng=(h%12)*30+m*0.5;          // 时针 30°/时、0.5°/分
+     let diff=Math.abs(hourAng-minAng);
+     const ang=Math.min(diff,360-diff);
+     let s=`
+       <circle cx="${O.x}" cy="${O.y}" r="${R}" fill="#fff" stroke="var(--accent)" stroke-width="6"/>`;
+     for(let i=1;i<=12;i++){
+       const a=(90-i*30)*Math.PI/180;
+       s+=`<text x="${O.x+(R-26)*Math.cos(a)}" y="${O.y-(R-26)*Math.sin(a)+7}" font-size="22" font-weight="800" fill="#6b7280" text-anchor="middle">${i}</text>`;
+     }
+     s+=hand(hourAng,R*0.55,"#9d174d",7);
+     s+=hand(minAng,R*0.8,"var(--accent)",5);
+     s+=`<circle cx="${O.x}" cy="${O.y}" r="9" fill="#374151"/>`;
+     svg.innerHTML=s;
+     st.textContent=`时针 ${hourAng.toFixed(1)}°（30°/时 + 0.5°/分），分针 ${minAng}°（6°/分），夹角取小的 = ${ang.toFixed(1)}°。`;
+   }
+   hIn.oninput=mIn.oninput=()=>{render();sfx("click");};
+   render();
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["30°","60°","90°"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>拨钟看到</h4><p>分针每分走 6°，时针每分只走 0.5°、每小时走 30°。3 点整时针正对 3、分针正对 12，夹角 90°。</p></div></div>
+     <p class="muted" style="margin-top:14px">注意时针会跟着分慢慢挪，不是整小时才动一下。</p>`;
+ },
+ observe:"改时和分，看时针、分针角度和夹角怎么变。",
+ summary:"时针0.5°/分、30°/时；分针6°/分；夹角取不超过180°的那个。",
+ condition:"两个方向都算一遍，取小角；时针角度要加上分钟带来的偏移。"
+};
+
+/* ---------- E23 数角数线段（新做） ---------- */
+E.E23={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   zone.innerHTML=`<p class="muted">从一个顶点引出 4 条射线，一共能数出几个角？</p>
+     ${choiceHtml(["3 个","4 个","6 个","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" id="mode23">
+       <button class="mini-btn">数角</button>
+       <button class="mini-btn">数线段</button></div>
+     <div class="quick-views" id="n23" style="margin-top:6px"></div>
+     <svg viewBox="0 0 600 340" id="svg23" style="width:100%;max-width:800;margin-top:8px"></svg>
+     <div style="display:flex;gap:10px;justify-content:center">
+       <button class="mini-btn" id="prev23">上一个</button>
+       <button class="mini-btn" id="next23">下一个</button>
+       <button class="mini-btn" id="all23">一次数全</button></div>
+     <div class="status-bar" id="s23" style="max-width:820px;margin-top:12px"></div></div>`;
+   const svg=zone.querySelector("#svg23"),st=zone.querySelector("#s23"),modeBar=zone.querySelector("#mode23"),nBar=zone.querySelector("#n23");
+   let mode=0,n=4,cur=-1;
+   function pairs(){const p=[];for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)p.push([i,j]);return p;}
+   const total=()=>n*(n-1)/2;
+   // 角视图参数
+   const O={x:300,y:260},R=175;
+   const rayAng=i=>10+i*(100/Math.max(1,n-1));
+   const RP=a=>({x:O.x+R*Math.cos(a*Math.PI/180),y:O.y-R*Math.sin(a*Math.PI/180)});
+   // 线段视图参数
+   const ly=200,px=i=>90+i*((520-90)/Math.max(1,n-1));
+   function render(){
+     const ps=pairs();let s="";
+     if(mode===0){
+       // 先画已数过的角（淡）和当前角（深）
+       ps.forEach((pr,k)=>{
+         const [i,j]=pr,a0=rayAng(i),a1=rayAng(j);
+         const A=RP(a0),B=RP(a1);
+         const cur0=k===cur;
+         s+=`<path d="M${O.x} ${O.y} L${A.x} ${A.y} A${R} ${R} 0 0 1 ${B.x} ${B.y} Z" fill="${cur0?"rgba(22,163,74,.6)":"rgba(22,163,74,.16)"}"/>`;
+       });
+       for(let i=0;i<n;i++){const p=RP(rayAng(i));
+         s+=`<line x1="${O.x}" y1="${O.y}" x2="${p.x}" y2="${p.y}" stroke="#14532d" stroke-width="3"/>
+           <circle cx="${p.x}" cy="${p.y}" r="6" fill="#16a34a"/>`;}
+       s+=`<circle cx="${O.x}" cy="${O.y}" r="8" fill="#14532d"/>`;
+     }else{
+       // 线段
+       ps.forEach((pr,k)=>{const [i,j]=pr;
+         s+=`<line x1="${px(i)}" y1="${ly}" x2="${px(j)}" y2="${ly}" stroke="${k===cur?"#16a34a":"#bbf7d0"}" stroke-width="${k===cur?7:4}" stroke-linecap="round"/>`;});
+       for(let i=0;i<n;i++)s+=`<circle cx="${px(i)}" cy="${ly}" r="9" fill="#14532d"/>`;
+     }
+     svg.innerHTML=s;
+     const counted=cur+1;
+     if(cur<0)st.textContent=`共 ${total()} 个，点"下一个"开始按顺序数，每两个元素配一对，不重不漏。`;
+     else if(cur>=ps.length-1)st.textContent=`数完了，一共 ${total()} 个。公式：${n} 选 2 = ${n}×${n-1}÷2 = ${total()}。`;
+     else st.textContent=`已数 ${counted} 个 / 共 ${total()} 个。`;
+     [...modeBar.children].forEach((b,i)=>{b.style.background=i===mode?"var(--accent)":"#fff";b.style.color=i===mode?"#fff":"var(--accent)";});
+   }
+   [2,3,4,5,6].forEach(v=>{const b=document.createElement("button");b.className="mini-btn";b.textContent=v+"个";
+     b.onclick=()=>{n=v;cur=-1;sfx("click");render();};nBar.appendChild(b);});
+   [...modeBar.children].forEach((b,i)=>b.onclick=()=>{mode=i;cur=-1;sfx("click");render();});
+   zone.querySelector("#next23").onclick=()=>{if(cur<total()-1)cur++;sfx("click");render();};
+   zone.querySelector("#prev23").onclick=()=>{if(cur>-1)cur--;sfx("click");render();};
+   zone.querySelector("#all23").onclick=()=>{cur=total()-1;sfx("click");render();};
+   render();
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["3 个","4 个","6 个"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>有序数之后</h4><p>数角和数线段是一回事，都是从几个元素里挑两个配一对。按顺序数、每对只数一次，就不会漏也不会重复，总数是 n(n−1)÷2。</p></div></div>`;
+ },
+ observe:"换几个数量，逐个高亮数，再看公式对不对。",
+ summary:"n 条射线/n 个点，角或线段总数 = n(n−1)÷2。",
+ condition:"有序计数、不重不漏；先数小的再数组合，或直接用组合公式。"
+};
+
+/* ---------- E24 棱柱棱锥归纳（新做，3D） ---------- */
+E.E24={
+ missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
+ buildGuess(zone,ctx){
+   zone.innerHTML=`<p class="muted">先数几个棱柱找规律。一个 n 棱柱，它有几个面？</p>
+     ${choiceHtml(["n 个","n+2 个","2n 个","我不确定"])}`;
+   ctx.data.choice=bindChoice(zone);
+ },
+ isComplete(ctx){return ctx.data.choice.sel.size>0;},
+ collect(ctx){return ctx.data.choice.get()[0];},
+ buildLab(zone,ctx){
+   zone.innerHTML=`<div class="scene">
+     <div class="quick-views" id="mode24">
+       <button class="mini-btn">棱柱</button>
+       <button class="mini-btn">棱锥</button></div>
+     <div class="quick-views" id="n24" style="margin-top:6px"></div>
+     <div style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center;align-items:flex-start">
+       <div id="host24" style="flex:1;min-width:380px;min-height:420px"></div>
+       <div style="display:flex;flex-direction:column;gap:12px;min-width:230px;justify-content:center">
+         <div class="stat-card" id="cV" style="border-left:6px solid #0891b2;padding:12px 16px;background:#ecfeff;border-radius:10px">
+           <div style="color:#155e75;font-weight:800">顶点</div><div style="font-size:34px;font-weight:900;color:#0e7490" id="vV"></div><div id="fV" style="color:#155e75;font-size:15px"></div></div>
+         <div class="stat-card" id="cE" style="border-left:6px solid #ea580c;padding:12px 16px;background:#fff7ed;border-radius:10px">
+           <div style="color:#9a3412;font-weight:800">棱</div><div style="font-size:34px;font-weight:900;color:#c2410c" id="vE"></div><div id="fE" style="color:#9a3412;font-size:15px"></div></div>
+         <div class="stat-card" id="cF" style="border-left:6px solid #db2777;padding:12px 16px;background:#fdf2f8;border-radius:10px">
+           <div style="color:#9d174d;font-weight:800">面</div><div style="font-size:34px;font-weight:900;color:#be185d" id="vF"></div><div id="fF" style="color:#9d174d;font-size:15px"></div></div></div></div>
+     <div class="status-bar" id="s24" style="max-width:860px;margin-top:10px"></div></div>`;
+   const host=zone.querySelector("#host24"),st=zone.querySelector("#s24"),modeBar=zone.querySelector("#mode24"),nBar=zone.querySelector("#n24");
+   (async()=>{
+     const stage=await ThreeStage.create(host,{height:440,camX:5.2,camY:3,camZ:6.4,bg:0xffffff});
+     const THREE=stage.THREE;
+     let mode=0,n=4,group=null;
+     const ballGeo=new THREE.SphereGeometry(.11,16,16),ballMat=new THREE.MeshStandardMaterial({color:0x92400e,roughness:.4});
+     function clearGroup(){if(!group)return;
+       group.traverse(o=>{if(o.geometry&&o.geometry!==ballGeo)o.geometry.dispose();
+         if(o.material&&o.material!==ballMat)o.material.dispose();});
+       stage.scene.remove(group);group=null;}
+     function build(){
+       clearGroup();group=new THREE.Group();
+       const off=Math.PI/n;
+       let geo;
+       if(mode===0)geo=new THREE.CylinderGeometry(1.6,1.6,2.6,n,1);
+       else geo=new THREE.ConeGeometry(1.8,2.8,n,1);
+       const body=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x16a34a,transparent:true,opacity:.28,side:THREE.DoubleSide,roughness:.55}));
+       const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0x14532d}));
+       group.add(body,edges);
+       // 顶点球
+       const pts=[];
+       if(mode===0){
+         for(let k=0;k<n;k++){const a=off+2*Math.PI*k/n;
+           pts.push([1.6*Math.cos(a),1.3,1.6*Math.sin(a)]);
+           pts.push([1.6*Math.cos(a),-1.3,1.6*Math.sin(a)]);}
+       }else{
+         for(let k=0;k<n;k++){const a=off+2*Math.PI*k/n;
+           pts.push([1.8*Math.cos(a),-1.4,1.8*Math.sin(a)]);}
+         pts.push([0,1.4,0]);
+       }
+       pts.forEach(p=>{const b=new THREE.Mesh(ballGeo,ballMat);b.position.set(...p);group.add(b);});
+       stage.scene.add(group);
+       // 统计
+       const V=mode===0?2*n:n+1,E=mode===0?3*n:2*n,F=mode===0?n+2:n+1;
+       zone.querySelector("#vV").textContent=V;
+       zone.querySelector("#vE").textContent=E;
+       zone.querySelector("#vF").textContent=F;
+       const nm=mode===0?"棱柱":"棱锥";
+       zone.querySelector("#fV").textContent=mode===0?`2n = 2×${n}`:`n+1 = ${n}+1`;
+       zone.querySelector("#fE").textContent=mode===0?`3n = 3×${n}`:`2n = 2×${n}`;
+       zone.querySelector("#fF").textContent=mode===0?`n+2 = ${n}+2`:`n+1 = ${n}+1`;
+       st.textContent=`${n} ${nm}：顶点 ${V}、棱 ${E}、面 ${F}。多换几个 n，看能不能自己把规律摸出来。`;
+       [...modeBar.children].forEach((b,i)=>{b.style.background=i===mode?"var(--accent)":"#fff";b.style.color=i===mode?"#fff":"var(--accent)";});
+     }
+     [3,4,5,6,8].forEach(v=>{const b=document.createElement("button");b.className="mini-btn";b.textContent=v;
+       b.onclick=()=>{n=v;sfx("click");build();};nBar.appendChild(b);});
+     [...modeBar.children].forEach((b,i)=>b.onclick=()=>{mode=i;sfx("click");build();});
+     build();
+   })().catch(()=>{st.textContent="3D 暂时没加载出来，检查网络后刷新试试。";});
+ },
+ buildReflect(zone,ctx){
+   const mt=ctx.guess==="unsure"?"我不确定":["n 个","n+2 个","2n 个"][ctx.guess];
+   zone.innerHTML=`<div class="guess-vs">
+     <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
+     <div class="col"><h4>归纳出来的规律</h4><p>棱柱：顶点 2n、棱 3n、面 n+2（上下两个底 + n 个侧面）。棱锥：顶点 n+1、棱 2n、面 n+1（一个底 + n 个侧面）。</p></div></div>
+     <p class="muted" style="margin-top:14px">先数几个具体的，再把数字换成 n，规律就出来了。</p>`;
+ },
+ observe:"棱柱、棱锥各换几个 n，数清楚再对照公式。",
+ summary:"n棱柱：2n顶点、3n棱、n+2面；n棱锥：n+1顶点、2n棱、n+1面。",
+ condition:"分清上下底和侧面；顶点数定了，棱和面跟着就能推。"
+};
+
+/* ================= 基础备查卡片 ================= */
+function renderRef(){
+ disposeActiveThree();
+ $("#app").style.setProperty("--accent","var(--t5)");
+ $("#app").innerHTML=`<div class="topbar">
+   <button class="icon-btn" onclick="backHome()" style="--accent:var(--t5)">
+     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--t5)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+   <h2 style="margin:0">基础备查卡片</h2></div>
+   <div class="ref-grid" id="refGrid"></div>`;
+ buildRefCards($("#refGrid"));
+}
+function buildRefCards(grid){
+ const cards=[
+  {id:"R1",c:"var(--t5)",s:"var(--t5-soft)",title:"直线、射线、线段",
+   body:`<table><tr><th>名字</th><th>端点数</th><th>怎么延伸</th><th>能测长度</th></tr>
+     <tr><td>直线</td><td>没有</td><td>两头都延伸</td><td>不能</td></tr>
+     <tr><td>射线</td><td>1 个</td><td>一头延伸</td><td>不能</td></tr>
+     <tr><td>线段</td><td>2 个</td><td>不延伸</td><td>能</td></tr></table>
+     <p class="muted" style="margin-bottom:0;font-size:18px">线段是直线里头的一段，两个端点把它定住。</p>`},
+  {id:"R2",c:"var(--t2)",s:"var(--t2-soft)",title:"两点确定一条直线",
+   body:`<p style="margin-top:0">过 <b>1 个点</b>，能画<b>无数条</b>直线，方向随便转。</p>
+     <p>过 <b>2 个点</b>，就<b>只有一条</b>直线，被定住了。</p>
+     <p class="muted" style="margin-bottom:0;font-size:18px">生活里：把一根木条钉墙上，至少要两个钉子才不晃。</p>`},
+  {id:"R3",c:"var(--t3)",s:"var(--t3-soft)",title:"角的种类",
+   body:`<table><tr><th>名字</th><th>度数</th></tr>
+     <tr><td>锐角</td><td>大于 0°、小于 90°</td></tr>
+     <tr><td>直角</td><td>等于 90°</td></tr>
+     <tr><td>钝角</td><td>大于 90°、小于 180°</td></tr>
+     <tr><td>平角</td><td>等于 180°</td></tr>
+     <tr><td>周角</td><td>等于 360°</td></tr></table>`},
+  {id:"R4",c:"var(--t4)",s:"var(--t4-soft)",title:"两条直线的关系",
+   body:`<p style="margin-top:0">同一平面里，两条<b>不同</b>的直线只有两种关系：</p>
+     <p>① <b>相交</b>：有一个公共点。<b>垂直</b>是相交的特例，相交成 90°。</p>
+     <p>② <b>平行</b>：怎么延长都不相交。</p>
+     <p class="muted" style="margin-bottom:0;font-size:18px">两条线完全叠在一起叫重合，那是同一条线，不算两种。</p>`}
+ ];
+ grid.innerHTML=cards.map(c=>`<div class="ref-card" style="--rc:${c.c};--rs:${c.s}">
+   <h3 style="color:${c.c}">${c.title}</h3>${c.body}</div>`).join("");
+}
+
+EXPS.forEach(e=>{window[e.impl]=E[e.impl];});
+route();
+</script>
+</body>
+</html>

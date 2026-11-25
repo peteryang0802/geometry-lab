@@ -2001,13 +2001,14 @@ E.E15={
    const svg=zone.querySelector("#svg15"),st=zone.querySelector("#s15"),tabs=zone.querySelector("#tabs15");
    const labAC=zone.querySelector("#labAC"),labCB=zone.querySelector("#labCB");
    let C={x:300,y:160};
+   const K=40; // 40 像素算 1 个单位，整条 AB 400 像素 = 10
    const handle=svgHandle(svg,{x:300,y:160},pt=>{pt.y=160;pt.x=Math.max(A.x,Math.min(B.x,pt.x));C={x:pt.x,y:160};draw();},"#db2777");
    function draw(){
-     const ac=C.x-A.x,cb=B.x-C.x;
+     const ac=Math.round((C.x-A.x)/K),cb=10-ac;
      labAC.setAttribute("x",(A.x+C.x)/2);labAC.textContent="AC="+ac;
      labCB.setAttribute("x",(C.x+B.x)/2);labCB.textContent="CB="+cb;
-     if(Math.abs(ac-cb)<1)st.textContent=`C 正好在中点：AC=CB=${ac}，都是 AB 的一半（AB=${ac+cb}）。`;
-     else st.textContent=`AC=${ac}，CB=${cb}，加起来 AC+CB=${ac+cb}，正好等于 AB，怎么拖都不变。`;
+     if(Math.abs(C.x-300)<2)st.textContent=`C 正好在中点：AC=CB=5，都是 AB 的一半（AB=10）。`;
+     else st.textContent=`AC=${ac}，CB=${cb}，加起来 AC+CB=10，正好等于 AB，怎么拖都不变。`;
    }
    [...tabs.children][0].onclick=()=>{sfx("click");toast("直接拖那个圆点就行。");};
    [...tabs.children][1].onclick=()=>{handle.set(300,160);C={x:300,y:160};sfx("click");draw();};

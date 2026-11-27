@@ -453,10 +453,14 @@ function finishTask(lv,tp,ctx,mod){
  setPhase(2);
  $("#summaryPanel").classList.remove("hidden");
  $("#summaryZone").innerHTML=`<div class="summary-big">${mod.summary}</div>${mod.condition?`<div class="cond">适用条件：${mod.condition}</div>`:""}`;
- const last=lv.id>=EXPS.length;
- $("#finishBtns").innerHTML=`<button class="btn btn-ghost" onclick="backHome()">回到首页</button>
-   ${last?`<button class="btn btn-primary" onclick="backHome()">全部做完啦</button>`:`<button class="btn btn-primary" onclick="goExp(${lv.id+1})">下一个实验</button>`}`;
- state.done[lv.slug]=true;save();sfx("good");
+ state.done[lv.slug]=true;save();
+ const doneCount=EXPS.filter(e=>state.done[e.slug]).length;
+ let primaryBtn;
+ if(doneCount>=EXPS.length)primaryBtn=`<button class="btn btn-primary" onclick="backHome()">全部做完啦（${doneCount}/${EXPS.length}）</button>`;
+ else if(lv.id<EXPS.length)primaryBtn=`<button class="btn btn-primary" onclick="goExp(${lv.id+1})">下一个实验</button>`;
+ else primaryBtn=`<button class="btn btn-primary" onclick="backHome()">回到首页（已做 ${doneCount}/${EXPS.length}）</button>`;
+ $("#finishBtns").innerHTML=`<button class="btn btn-ghost" onclick="backHome()">回到首页</button>${primaryBtn}`;
+ sfx("good");
 }
 
 /* ================= 通用：3D 旋转器 ================= */
@@ -2556,6 +2560,7 @@ E.E21={
      else st.textContent=`已数 ${counted} 个 / 共 ${total()} 个。`;
      [...modeBar.children].forEach((b,i)=>{b.style.background=i===mode?"var(--accent)":"#fff";b.style.color=i===mode?"#fff":"var(--accent)";});
      if(cur>=total()-1)fcard.render({title:"数出来的公式",body:`总数 = <span class="hl">${n}×${n-1}÷2 = ${total()}</span>`,note:"数角和数线段都一样，每两个元素配一对，不重不漏。"});
+     else fcard.hide();
    }
    [2,3,4,5,6].forEach(v=>{const b=document.createElement("button");b.className="mini-btn";b.textContent=v+"个";
      b.onclick=()=>{n=v;cur=-1;sfx("click");render();};nBar.appendChild(b);});
@@ -2782,12 +2787,13 @@ E.E23={
        set.add(key);first=-1;sfx("good");render();
      });
      goalZone.innerHTML=goalHtml();
-     const done=curSet().size,pt=pairTotal();
+     const done=curSet().size,pt=pairTotal(),pk=ctx.data.picked;
      if(first>=0)st.textContent="选中了一个点，再点同一层的另一个点，配成一个三角形。";
      else if(done<pt)st.textContent=`这一层已配 ${done}/${pt} 个。想想还有哪两个点没配。`;
-     else st.textContent=`这一层 ${pt} 个全配完了。${layer===0?"切到整体那层继续。":"两层都齐了，总数是 "+(2*pt)+" 个。"}`;
+     else if(layer===0)st.textContent=`上层 ${pt} 个全配完了，切到整体那层继续。`;
+     else if(pk.top.size===pt)st.textContent=`两层都齐了，总数是 ${2*pt} 个。`;
+     else st.textContent=`整体这层配完了，但上层还没配，切回上层把 ${pt} 个补齐。`;
      [...layerBar.children].forEach((b,i)=>{b.style.background=i===layer?"var(--accent)":"#fff";b.style.color=i===layer?"#fff":"var(--accent)";});
-     const pk=ctx.data.picked;
      if(pk.top.size===pt&&pk.bottom.size===pt)fcard.render({title:"全部加起来",body:`总数 = 2×${pt} = <span class="hl">${m}×${m-1} = ${2*pt}</span>`,note:"上下两层一样多，乘 2。"});
      else if(pk.top.size===pt)fcard.render({title:"每层有几个",body:`每层 = <span class="hl">${m}×${m-1}÷2 = ${pt}</span>`,note:"同一层横线上 m 个点，两两配对。"});
      else fcard.hide();
@@ -2928,7 +2934,12 @@ E.E24={
    }
    zone.querySelector("#addL").onclick=()=>{if(ctx.data.n<5){ctx.data.n++;sfx("good");render();}else toast("最多画 5 条，已经到了。");};
    zone.querySelector("#undoL").onclick=()=>{if(ctx.data.n>0){ctx.data.n--;sfx("click");render();}};
-   zone.querySelector("#resetL").onclick=()=>{ctx.data.n=0;sfx("click");render();};
+   zone.querySelector("#resetL").onclick=()=>{
+     ctx.data.n=0;
+     $("#summaryPanel").classList.add("hidden");
+     setPhase(1);
+     delete state.done[ctx.lv.slug];save();
+     sfx("click");render();};
    render();
  },
  isTaskDone(ctx){return ctx.data.n>=5;},

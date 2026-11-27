@@ -1752,151 +1752,264 @@ E.E26={
  isComplete(ctx){return ctx.data.choice.sel.size>0;},
  collect(ctx){return ctx.data.choice.get()[0];},
  restoreGuess(zone,g){if(g!=="unsure"){const b=zone.querySelector('.choice[data-v="'+g+'"]');if(b)b.click();}},
- task:"先把四个点的位置理顺，再点两个按钮看 E 的左右位置，对照绝对值方程。",
- hint:"两个中点先定出 A、B、C、D，再算 AD；EC 等于 AD，E 能在 C 两边。",
+ task:"自己拖 E，先找出离 C 恰好 6 的一个点，再想想这样的点是不是只有一个，最后核对坐标和距离。",
+ hint:"两个中点先定出 A、B、C、D。离 C 是 6 的点，C 两边各有一个，得自己拖出来，先找到的那个别急着当成唯一答案。",
  buildLab(zone,ctx){
-  const COL="#7c3aed",K=36,ORIG=150,Y=155,fixed={A:0,B:2,C:4,D:6};
-  const sx=x=>ORIG+K*x;
-  const savedLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
-  ctx.data.side=savedLab?savedLab.side:0;
-  ctx.data.seen=new Set(savedLab&&savedLab.seen?savedLab.seen:[ctx.data.side]);
+  const K=36,ORIG=150,Y=155,LO=-4,HI=12;
+  const TARGETS=[-2,10],COL="#7c3aed",GREEN="#16a34a",CYAN="#0891b2",ORANGE="#ea580c";
+  const sx=x=>ORIG+K*x,clamp=v=>Math.max(LO,Math.min(HI,v)),SNAP_TOL=.6;
+  const rawLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
+  const savedLab=rawLab&&typeof rawLab.step==="number"?rawLab:null;
+  ctx.data.legacyReset=!!(rawLab&&!savedLab);
+  ctx.data.step=savedLab?savedLab.step:0;
+  ctx.data.found=savedLab?savedLab.found:[];
+  ctx.data.cur=savedLab?savedLab.cur:7;
+  ctx.data.finished=savedLab?savedLab.finished:false;
   function persist(){
-   state.progress[ctx.lv.slug]=Object.assign(state.progress[ctx.lv.slug]||{guess:ctx.guess},{lab:{side:ctx.data.side,seen:[...ctx.data.seen]}});save();
+   state.progress[ctx.lv.slug]=Object.assign(state.progress[ctx.lv.slug]||{guess:ctx.guess},{lab:{step:ctx.data.step,found:ctx.data.found,cur:ctx.data.cur,finished:ctx.data.finished}});save();
   }
-  zone.innerHTML=`<div class="scene">
-   <div class="quick-views" id="tabs26"><button class="mini-btn">E 在 C 左边</button><button class="mini-btn">E 在 C 右边</button></div>
-   <svg viewBox="0 0 600 270" id="svg26" style="width:100%;max-width:760"></svg>
-   <div class="eq-card" id="eq26" style="border-color:${COL}"></div>
-   <div class="status-bar" id="s26" style="max-width:760"></div></div>`;
-  const svg=zone.querySelector("#svg26"),eq=zone.querySelector("#eq26"),st=zone.querySelector("#s26"),tabs=zone.querySelector("#tabs26");
-  function draw(){
-   const eX=ctx.data.side===0?-2:10,ea=Math.abs(eX),eXs=sx(eX),cX=sx(4);
-   let s=`<line x1="40" y1="${Y}" x2="560" y2="${Y}" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
-    <path d="M552 ${Y-7} L560 ${Y} L552 ${Y+7}" fill="#94a3b8"/>`;
-   Object.entries(fixed).forEach(([nm,x])=>{const X=sx(x);
-    s+=`<circle cx="${X}" cy="${Y}" r="8" fill="#fff" stroke="#334155" stroke-width="3"/>
-     <text x="${X}" y="${Y-15}" font-size="19" font-weight="900" fill="#334155" text-anchor="middle">${nm}</text>`;});
-   s+=`<line x1="${cX}" y1="${Y+25}" x2="${eXs}" y2="${Y+25}" stroke="${COL}" stroke-width="2"/>
-    <circle cx="${eXs}" cy="${Y}" r="11" fill="${COL}"/>
-    <text x="${eXs}" y="${Y-18}" font-size="19" font-weight="900" fill="${COL}" text-anchor="middle">E</text>
-    <text x="${(cX+eXs)/2}" y="${Y+47}" font-size="16" font-weight="800" fill="${COL}" text-anchor="middle">EC=6</text>`;
-   svg.innerHTML=s;
-   eq.style.borderColor=COL;
-   eq.innerHTML=`<div class="eq-title" style="color:${COL}">写成绝对值方程（设 E 的坐标是 x）</div>
-    <div class="eq-main">|x − 4| = 6</div>
-    <div class="eq-branch">x − 4 = −6 → x = −2（E 在左，EA=2）</div>
-    <div class="eq-branch">x − 4 = 6 → x = 10（E 在右，EA=10）</div>`;
-   st.textContent=`E 在 C ${ctx.data.side===0?"左":"右"}边，坐标 ${eX}，E 到 A 是 ${ea}。两边都看一遍就做完了。`;
-   [...tabs.children].forEach((b,i)=>{b.style.background=i===ctx.data.side?COL:"#fff";b.style.color=i===ctx.data.side?"#fff":COL;b.style.borderColor=COL;});
+  const STEP_META=[
+   {c:COL,t:"① 自己拖 E，找离 C 恰好 6 的点"},
+   {c:COL,t:"② 想想这样的点是不是只有一个"},
+   {c:CYAN,t:"③ 核对坐标和距离"}
+  ];
+  function stepBar(){
+   return `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:10px">`+
+    STEP_META.map((m,i)=>{const on=i===ctx.data.step,done=i<ctx.data.step;
+     return `<span style="background:${done?GREEN:on?m.c:"#fff"};color:${done||on?"#fff":m.c};border:2px solid ${m.c};border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px">${m.t}</span>`;}).join("")+`</div>`;
   }
-  [...tabs.children].forEach((b,i)=>b.onclick=()=>{ctx.data.side=i;ctx.data.seen.add(i);sfx("click");draw();persist();ctx.check();});
-  draw();persist();ctx.check();
+  function fixedPoints(){
+   let out="";
+   [["A",0],["B",2],["C",4],["D",6]].forEach(([nm,x])=>{const X=sx(x);
+    out+=`<circle cx="${X}" cy="${Y}" r="8" fill="#fff" stroke="#334155" stroke-width="3"/>
+     <text x="${X}" y="${Y-14}" font-size="19" font-weight="900" fill="#334155" text-anchor="middle">${nm}</text>`;});
+   return out;
+  }
+  function foundPoint(x,idx){
+   const X=sx(x);
+   return `<circle cx="${X}" cy="${Y}" r="11" fill="${GREEN}"/>
+    <text x="${X}" y="${Y-16}" font-size="18" font-weight="900" fill="#15803d" text-anchor="middle">E${idx+1}</text>
+    <text x="${X}" y="${Y+28}" font-size="15" font-weight="800" fill="#15803d" text-anchor="middle">${x}</text>`;
+  }
+  function axis(){
+   return `<line x1="${sx(LO)}" y1="${Y}" x2="${sx(HI)}" y2="${Y}" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+    <path d="M${sx(HI)-8} ${Y-7} L${sx(HI)} ${Y} L${sx(HI)-8} ${Y+7}" fill="#94a3b8"/>`;
+  }
+  function nearestTarget(x){return TARGETS.find(t=>Math.abs(x-t)<=SNAP_TOL);}
+  function render(){
+   const step=ctx.data.step;
+   let html=`<div class="scene">${stepBar()}<svg viewBox="0 0 600 250" id="svg26" style="width:100%;max-width:760"></svg>`;
+   if(step<=1)html+=`<div class="status-bar" id="s26" style="max-width:760"></div>`;
+   else html+=`<div class="eq-card" id="card26" style="border-color:${CYAN}"></div>`;
+   html+=`</div>`;
+   zone.innerHTML=html;
+   const svg=zone.querySelector("#svg26");
+   let s=axis()+fixedPoints();
+   ctx.data.found.forEach((x,i)=>s+=foundPoint(x,i));
+   if(step===0||step===1){
+    const cX=sx(4);
+    s+=`<line id="dash26" x1="${cX}" y1="${Y+22}" x2="${sx(ctx.data.cur)}" y2="${Y+22}" stroke="${COL}" stroke-width="2" stroke-dasharray="4 4"/>`;
+    svg.innerHTML=s;
+    const st=zone.querySelector("#s26");
+    svgHandle(svg,{x:sx(ctx.data.cur),y:Y},pt=>{
+      const raw=clamp((pt.x-ORIG)/K),hit=nearestTarget(raw);
+      const isSnap=hit!==undefined,math=isSnap?hit:raw;
+      ctx.data.cur=math;pt.x=sx(math);pt.y=Y;
+      const dash=svg.querySelector("#dash26");if(dash)dash.setAttribute("x2",sx(math));
+      const hh=svg.querySelector(".svg-handle");if(hh)hh.setAttribute("fill",isSnap?GREEN:COL);
+      const d=Math.abs(math-4);
+      if(isSnap)st.innerHTML=`吸住啦：E 离 C 正好 <b style="color:${GREEN}">6.0</b>，松手就记下这个点。`;
+      else st.textContent=`现在 E 离 C 是 ${d.toFixed(1)}。靠近整数刻度会自动吸住，没吸住松手不算数。`;
+    },COL,()=>{
+      const x=ctx.data.cur,t=TARGETS.find(tg=>Math.abs(x-tg)<1e-9);
+      if(t===undefined){
+       const d=Math.abs(x-4),gap=Math.abs(6-d);
+       st.textContent=`没吸住，现在离 C 是 ${d.toFixed(1)}，还差 ${gap.toFixed(1)}。再拖拖，争取正好吸到 6.0。`;sfx("click");return;
+      }
+      if(step===0){
+       ctx.data.found=[t];ctx.data.cur=t===-2?8:0;ctx.data.step=1;sfx("good");persist();render();
+      }else{
+       if(t!==ctx.data.found[0]){
+        ctx.data.found=[...ctx.data.found,t].sort((a,b)=>a-b);ctx.data.step=2;sfx("good");persist();render();
+       }else{
+        st.textContent=`这个点（${t}）已经找到啦，再拖拖，看看 C 的另一边。`;sfx("click");
+       }
+      }
+    });
+    if(step===0)st.textContent=`按住圆点拖，让 E 离 C 恰好是 6。现在离 C 是 ${Math.abs(ctx.data.cur-4).toFixed(1)}。`;
+    else st.textContent=`E1（坐标 ${ctx.data.found[0]}）找到了。这样的点只有一个吗？先别急着问，自己再拖拖看。`;
+   }else{
+    svg.innerHTML=s;
+    const card=zone.querySelector("#card26");
+    card.innerHTML=`<div class="eq-title" style="color:${CYAN}">两个点都是你自己找到的，核对一下</div>
+      <div class="eq-main">|x − 4| = 6</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:8px">
+       <div style="flex:1;min-width:220px;border:2px solid ${CYAN};border-radius:12px;overflow:hidden">
+        <div style="background:${CYAN};color:#fff;font-weight:800;padding:7px;font-size:15px">点 E 在哪里 · 坐标 x（方程的解）</div>
+        <div style="padding:10px;text-align:center;line-height:2">
+         <div style="font-size:18px;font-weight:800;color:#0e7490">左边 x = −2</div>
+         <div style="font-size:18px;font-weight:800;color:#0e7490">右边 x = 10</div></div></div>
+       <div style="flex:1;min-width:220px;border:2px solid ${ORANGE};border-radius:12px;overflow:hidden">
+        <div style="background:${ORANGE};color:#fff;font-weight:800;padding:7px;font-size:15px">E 离 A 多远 · 距离 EA（取绝对值）</div>
+        <div style="padding:10px;text-align:center;line-height:2">
+         <div style="font-size:18px;font-weight:800;color:#c2410c">左边 EA = |−2| = 2</div>
+         <div style="font-size:18px;font-weight:800;color:#c2410c">右边 EA = |10| = 10</div></div></div>
+      </div>`;
+    ctx.data.finished=true;persist();ctx.check();
+   }
+   persist();ctx.check();
+  }
+  render();
+  if(ctx.data.legacyReset){toast("这节课更新了，原来的记录是旧版。咱们从第一步重新动手找。");}
  },
- isTaskDone(ctx){return ctx.data.seen.size>=2;},
- remaining(ctx){const m=[];if(!ctx.data.seen.has(0))m.push("看 E 在 C 左边");if(!ctx.data.seen.has(1))m.push("看 E 在 C 右边");return "还差："+m.join("；");},
- summary:"两个中点先定四点，E 到 C 距离固定、左右没定：在左 EA=2，在右 EA=10，对应绝对值方程两个解。",
- condition:"E 只说在直线上、没说在 C 哪一侧，左右都要算。"
+ isTaskDone(ctx){return ctx.data.finished===true;},
+ remaining(ctx){const m={0:"拖 E 找出离 C 恰好 6 的第一个点",1:"自己再找找，看这样的点是不是只有一个",2:"核对两个位置的坐标和距离"};
+  return "还差："+(m[ctx.data.step]||"完成这一步");},
+ summary:"两个中点先定四点，E 离 C 固定是 6、左右没定，自己拖能找到两个点：坐标 −2 和 10 是方程 |x−4|=6 的解；到 A 的距离再取绝对值，是 2 和 10。",
+ condition:"题目只说 E 在直线上、没说哪一侧，左右都要自己找；方程解的是坐标，距离要再取绝对值。"
 };
 
 /* ---------- 新课 E27：多条件线段，绝对值两解（综合，老杨题） ---------- */
 E.E27={
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
-  const P=[["A",0],["B",1],["C",2],["D",6]];
+  const P=[["A",0],["B",2]];
   let dots="";
   P.forEach(([nm,x])=>{const X=210+36*x;
    dots+=`<circle cx="${X}" cy="105" r="9" fill="#fff" stroke="#334155" stroke-width="3"/><text x="${X}" y="87" font-size="19" font-weight="900" fill="#334155" text-anchor="middle">${nm}</text>`;});
   const fig=`<svg viewBox="0 0 600 160" style="width:100%;max-width:660px;margin:6px 0">
-   <line x1="40" y1="105" x2="500" y2="105" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>${dots}</svg>`;
-  zone.innerHTML=`<p class="muted">直线上顺次有 A、B、C、D。B 是 AC 中点，CD=2AC，AC=2。点 E 在这条直线上，EB=AD。<b>E 到 A 有多远？</b></p>
+   <line x1="40" y1="105" x2="560" y2="105" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>${dots}</svg>`;
+  zone.innerHTML=`<p class="muted">A 的坐标是 0、B 的坐标是 2。点 E 在这条直线上，EB=5。<b>E 到 A 可能有多远？先想 E 能放哪。</b></p>
    ${fig}
-   ${choiceHtml(["5","7","两个都可能（5 或 7）","我不确定"])}`;
+   ${choiceHtml(["3","7","两个都可能（3 或 7）","我不确定"])}`;
   ctx.data.choice=bindChoice(zone);
  },
  isComplete(ctx){return ctx.data.choice.sel.size>0;},
  collect(ctx){return ctx.data.choice.get()[0];},
  restoreGuess(zone,g){if(g!=="unsure"){const b=zone.querySelector('.choice[data-v="'+g+'"]');if(b)b.click();}},
- task:"条件一个一个理，再点两个按钮看 E 的左右位置，对照绝对值方程。",
- hint:"中点定 B，倍数定 D，先算 AD；EB 等于 AD，E 能在 B 两边。",
+ task:"自己拖 E，独立找出离 B 恰好 5 的两个点；再加射线条件，判断该舍去哪个。",
+ hint:"离 B 是 5 的点，B 两边各一个。加射线后，先看射线朝哪、再看两个点在 A 的哪一边。",
  buildLab(zone,ctx){
-  const COL="#db2777",K=36,ORIG=210,Y=155,fixed={A:0,B:1,C:2,D:6};
-  const sx=x=>ORIG+K*x;
-  const savedLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
-  ctx.data.side=savedLab?savedLab.side:0;
-  ctx.data.seen=new Set(savedLab&&savedLab.seen?savedLab.seen:[ctx.data.side]);
-  ctx.data.explained=savedLab&&savedLab.explained?true:false;
+  const K=36,ORIG=210,Y=155,LO=-5,HI=10,B=2;
+  const TARGETS=[-3,7],COL="#db2777",GREEN="#16a34a",CYAN="#0891b2",ORANGE="#ea580c";
+  const sx=x=>ORIG+K*x,clamp=v=>Math.max(LO,Math.min(HI,v)),SNAP_TOL=.6;
+  const rawLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
+  const savedLab=rawLab&&typeof rawLab.step==="number"?rawLab:null;
+  ctx.data.legacyReset=!!(rawLab&&!savedLab);
+  ctx.data.step=savedLab?savedLab.step:0;
+  ctx.data.found=savedLab?savedLab.found:[];
+  ctx.data.cur=savedLab?savedLab.cur:4;
+  ctx.data.finished=savedLab?savedLab.finished:false;
   function persist(){
-   state.progress[ctx.lv.slug]=Object.assign(state.progress[ctx.lv.slug]||{guess:ctx.guess},{lab:{side:ctx.data.side,seen:[...ctx.data.seen],explained:ctx.data.explained}});save();
+   state.progress[ctx.lv.slug]=Object.assign(state.progress[ctx.lv.slug]||{guess:ctx.guess},{lab:{step:ctx.data.step,found:ctx.data.found,cur:ctx.data.cur,finished:ctx.data.finished}});save();
   }
-  zone.innerHTML=`<div class="scene">
-   <div class="quick-views" id="tabs27"><button class="mini-btn">E 在 B 左边</button><button class="mini-btn">E 在 B 右边</button></div>
-   <svg viewBox="0 0 600 270" id="svg27" style="width:100%;max-width:760"></svg>
-   <div class="eq-card" id="eq27" style="border-color:${COL}"></div>
-   <div id="ask27"></div>
-   <div class="status-bar" id="s27" style="max-width:760"></div></div>`;
-  const svg=zone.querySelector("#svg27"),eq=zone.querySelector("#eq27"),st=zone.querySelector("#s27"),tabs=zone.querySelector("#tabs27"),ask=zone.querySelector("#ask27");
-  function draw(){
-   const eX=ctx.data.side===0?-5:7,ea=Math.abs(eX),eXs=sx(eX),bX=sx(1);
-   let s=`<line x1="25" y1="${Y}" x2="490" y2="${Y}" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
-    <path d="M482 ${Y-7} L490 ${Y} L482 ${Y+7}" fill="#94a3b8"/>`;
-   Object.entries(fixed).forEach(([nm,x])=>{const X=sx(x);
-    s+=`<circle cx="${X}" cy="${Y}" r="8" fill="#fff" stroke="#334155" stroke-width="3"/>
-     <text x="${X}" y="${Y-15}" font-size="19" font-weight="900" fill="#334155" text-anchor="middle">${nm}</text>`;});
-   s+=`<line x1="${bX}" y1="${Y+25}" x2="${eXs}" y2="${Y+25}" stroke="${COL}" stroke-width="2"/>
-    <circle cx="${eXs}" cy="${Y}" r="11" fill="${COL}"/>
-    <text x="${eXs}" y="${Y-18}" font-size="19" font-weight="900" fill="${COL}" text-anchor="middle">E</text>
-    <text x="${(bX+eXs)/2}" y="${Y+47}" font-size="16" font-weight="800" fill="${COL}" text-anchor="middle">EB=6</text>`;
-   svg.innerHTML=s;
-   eq.style.borderColor=COL;
-   eq.innerHTML=`<div class="eq-title" style="color:${COL}">写成绝对值方程（设 E 的坐标是 x）</div>
-    <div class="eq-main">|x − 1| = 6</div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:10px">
-      <div style="flex:1;min-width:225px;border:2px solid #0891b2;border-radius:12px;overflow:hidden">
-        <div style="background:#0891b2;color:#fff;font-weight:800;padding:7px;text-align:center;font-size:15px">点 E 在哪里 · 坐标 x（方程的解）</div>
-        <div style="padding:10px;text-align:center;line-height:2">
-          <div style="font-size:18px;font-weight:800;color:#0e7490">左边 x = −5</div>
-          <div style="font-size:18px;font-weight:800;color:#0e7490">右边 x = 7</div></div></div>
-      <div style="flex:1;min-width:225px;border:2px solid #ea580c;border-radius:12px;overflow:hidden">
-        <div style="background:#ea580c;color:#fff;font-weight:800;padding:7px;text-align:center;font-size:15px">E 离 A 多远 · 距离 EA（坐标取绝对值）</div>
-        <div style="padding:10px;text-align:center;line-height:2">
-          <div style="font-size:18px;font-weight:800;color:#c2410c">左边 EA = |−5| = 5</div>
-          <div style="font-size:18px;font-weight:800;color:#c2410c">右边 EA = |7| = 7</div></div></div>
-    </div>`;
-   st.textContent=`E 在 B ${ctx.data.side===0?"左":"右"}边，坐标 ${eX}，E 到 A 是 ${ea}。两边都看一遍，再想清楚坐标和距离的区别。`;
-   [...tabs.children].forEach((b,i)=>{b.style.background=i===ctx.data.side?COL:"#fff";b.style.color=i===ctx.data.side?"#fff":COL;b.style.borderColor=COL;});
+  const STEP_META=[
+   {c:COL,t:"① 独立找第一个点"},
+   {c:COL,t:"② 自己找另一个点"},
+   {c:ORANGE,t:"③ 加射线，判断舍去哪个"}
+  ];
+  function stepBar(){
+   return `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:10px">`+
+    STEP_META.map((m,i)=>{const on=i===ctx.data.step,done=i<ctx.data.step;
+     return `<span style="background:${done?GREEN:on?m.c:"#fff"};color:${done||on?"#fff":m.c};border:2px solid ${m.c};border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px">${m.t}</span>`;}).join("")+`</div>`;
   }
-  function renderAsk(){
-   if(ctx.data.seen.size<2){ask.innerHTML="";return;}
-   if(ctx.data.explained){
-    ask.innerHTML=`<div class="eq-card" style="border-color:#16a34a;border-left-color:#16a34a;margin-top:14px">
-      <div class="eq-title" style="color:#16a34a">想清楚了</div>
-      <p style="font-size:16px;line-height:1.9;color:#374151;margin:6px 0 0">方程 |x−1|=6 解出来的是<b style="color:#0891b2">坐标 x</b>：−5 和 7。题目问的<b style="color:#ea580c">距离 EA</b>，是坐标再取绝对值：|−5|=5、|7|=7。坐标能是负的，距离不会负，这俩不是一回事。</p></div>`;
-    return;
+  function fixedPoints(){
+   let out="";
+   [["A",0],["B",2]].forEach(([nm,x])=>{const X=sx(x);
+    out+=`<circle cx="${X}" cy="${Y}" r="8" fill="#fff" stroke="#334155" stroke-width="3"/>
+     <text x="${X}" y="${Y-14}" font-size="19" font-weight="900" fill="#334155" text-anchor="middle">${nm}</text>`;});
+   return out;
+  }
+  function foundPoint(x,idx){
+   const X=sx(x);
+   return `<circle cx="${X}" cy="${Y}" r="11" fill="${GREEN}"/>
+    <text x="${X}" y="${Y-16}" font-size="18" font-weight="900" fill="#15803d" text-anchor="middle">E${idx+1}</text>
+    <text x="${X}" y="${Y+28}" font-size="15" font-weight="800" fill="#15803d" text-anchor="middle">${x}</text>`;
+  }
+  function axis(){
+   return `<line x1="${sx(LO)}" y1="${Y}" x2="${sx(HI)}" y2="${Y}" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+    <path d="M${sx(HI)-8} ${Y-7} L${sx(HI)} ${Y} L${sx(HI)-8} ${Y+7}" fill="#94a3b8"/>`;
+  }
+  function nearestTarget(x){return TARGETS.find(t=>Math.abs(x-t)<=SNAP_TOL);}
+  function render(){
+   const step=ctx.data.step;
+   let html=`<div class="scene">${stepBar()}<svg viewBox="0 0 600 250" id="svg27" style="width:100%;max-width:760"></svg>`;
+   if(step<=1)html+=`<div class="status-bar" id="s27" style="max-width:760"></div>`;
+   else html+=`<div class="eq-card" id="card27" style="border-color:${ORANGE}"></div>`;
+   html+=`</div>`;
+   zone.innerHTML=html;
+   const svg=zone.querySelector("#svg27");
+   let s=axis()+fixedPoints();
+   ctx.data.found.forEach((x,i)=>s+=foundPoint(x,i));
+   if(step===0||step===1){
+    const bX=sx(B);
+    s+=`<line id="dash27" x1="${bX}" y1="${Y+22}" x2="${sx(ctx.data.cur)}" y2="${Y+22}" stroke="${COL}" stroke-width="2" stroke-dasharray="4 4"/>`;
+    svg.innerHTML=s;
+    const st=zone.querySelector("#s27");
+    svgHandle(svg,{x:sx(ctx.data.cur),y:Y},pt=>{
+      const raw=clamp((pt.x-ORIG)/K),hit=nearestTarget(raw);
+      const isSnap=hit!==undefined,math=isSnap?hit:raw;
+      ctx.data.cur=math;pt.x=sx(math);pt.y=Y;
+      const dash=svg.querySelector("#dash27");if(dash)dash.setAttribute("x2",sx(math));
+      const hh=svg.querySelector(".svg-handle");if(hh)hh.setAttribute("fill",isSnap?GREEN:COL);
+      const d=Math.abs(math-B);
+      if(isSnap)st.innerHTML=`吸住啦：E 离 B 正好 <b style="color:${GREEN}">5.0</b>，松手就记下这个点。`;
+      else st.textContent=`现在 E 离 B 是 ${d.toFixed(1)}。靠近整数刻度会自动吸住，没吸住松手不算数。`;
+    },COL,()=>{
+      const x=ctx.data.cur,t=TARGETS.find(tg=>Math.abs(x-tg)<1e-9);
+      if(t===undefined){
+       const d=Math.abs(x-B),gap=Math.abs(5-d);
+       st.textContent=`没吸住，现在离 B 是 ${d.toFixed(1)}，还差 ${gap.toFixed(1)}。再拖拖，争取正好吸到 5.0。`;sfx("click");return;
+      }
+      if(step===0){
+       ctx.data.found=[t];ctx.data.cur=t===-3?6:0;ctx.data.step=1;sfx("good");persist();render();
+      }else{
+       if(t!==ctx.data.found[0]){
+        ctx.data.found=[...ctx.data.found,t].sort((a,b)=>a-b);ctx.data.step=2;sfx("good");persist();render();
+       }else{
+        st.textContent=`这个点（${t}）已经找到啦，再拖拖，B 的另一边还有一个。`;sfx("click");
+       }
+      }
+    });
+    if(step===0)st.textContent=`这是独立题，没人提示。按住圆点拖，让 E 离 B 恰好是 5。现在离 B 是 ${Math.abs(ctx.data.cur-B).toFixed(1)}。`;
+    else st.textContent=`E1（坐标 ${ctx.data.found[0]}）找到了。另一个点自己找，没人提示你。`;
+   }else{
+    // 射线 AB（x≥0）橙色高亮
+    const r0=sx(0),r1=sx(HI);
+    s+=`<line x1="${r0}" y1="${Y}" x2="${r1}" y2="${Y}" stroke="${ORANGE}" stroke-width="7" stroke-linecap="round" opacity=".4"/>
+      <path d="M${r1-10} ${Y-7} L${r1} ${Y} L${r1-10} ${Y+7}" fill="${ORANGE}"/>`;
+    svg.innerHTML=s;
+    const card=zone.querySelector("#card27");
+    card.innerHTML=`<div class="eq-title" style="color:${ORANGE}">再加条件：E 必须在射线 AB 上（从 A 过 B 向右，x≥0）</div>
+      <p style="font-size:17px;font-weight:700;color:#1f2937;margin:6px 0 10px">看橙色射线，再看两个点。该舍去哪一个？</p>
+      <div class="choice-grid">
+        <button class="choice" data-v="0">舍去左边的 −3</button>
+        <button class="choice" data-v="1">舍去右边的 7</button></div>
+      <div id="rayFb27" style="margin-top:10px"></div>`;
+    bindChoice(card,sel=>{
+      const fb=card.querySelector("#rayFb27");
+      if(sel[0]==="0"){
+       ctx.data.finished=true;persist();
+       fb.innerHTML=`<div style="color:#16a34a;font-weight:800;line-height:1.9">对。−3 在 A 左边、射线只向右，所以舍去它，只留 7。<br>
+         方程 |x−2|=5 的解是<b style="color:${CYAN}">坐标 −3、7</b>；到 A 的<b style="color:${ORANGE}">距离是 3、7</b>。限射线后只剩坐标 7。</div>`;
+       sfx("good");ctx.check();
+      }else{
+       sfx("soft");
+       fb.innerHTML=`<div style="color:#dc2626;font-weight:700;line-height:1.8">再看：射线从 A 向右，7 在射线里、−3 在射线外。要舍的是射线外那个。</div>`;
+      }
+    });
+    ctx.check();
    }
-   ask.innerHTML=`<div class="eq-card" style="border-color:#7c3aed;border-left-color:#7c3aed;margin-top:14px">
-     <div class="eq-title" style="color:#7c3aed">再想一步</div>
-     <p style="font-size:17px;font-weight:700;color:#1f2937;margin:4px 0 10px">左边那个 E，坐标是 −5，可它到 A 的距离为什么是 5，不是 −5？</p>
-     <div id="askChoices27"></div>
-     <div id="askFb27" style="margin-top:8px;font-size:15px;font-weight:700;line-height:1.7"></div></div>`;
-   const items=["距离是绝对值，不会是负数","坐标 −5 写错了，应该是 5","坐标和距离本来就是一回事"];
-   const ac=zone.querySelector("#askChoices27"),fb=zone.querySelector("#askFb27");
-   ac.innerHTML=items.map((t,i)=>`<button class="mini-btn" data-i="${i}" style="margin:4px">${t}</button>`).join("");
-   ac.querySelectorAll("button").forEach(b=>b.onclick=()=>{
-    if(+b.dataset.i===0){ctx.data.explained=true;sfx("good");persist();renderAsk();ctx.check();}
-    else{sfx("soft");fb.style.color="#dc2626";fb.textContent="再想想：坐标 −5 说的是点在 A 左边 5 格；距离数的是隔了几格，不会数出负的。";}
-   });
+   persist();ctx.check();
   }
-  [...tabs.children].forEach((b,i)=>b.onclick=()=>{ctx.data.side=i;ctx.data.seen.add(i);sfx("click");draw();persist();renderAsk();ctx.check();});
-  draw();persist();renderAsk();ctx.check();
+  render();
+  if(ctx.data.legacyReset){toast("这节课更新了，原来的记录是旧版。咱们从第一步重新动手找。");}
  },
- isTaskDone(ctx){return ctx.data.seen.size>=2&&ctx.data.explained;},
- remaining(ctx){const m=[];
-  if(!ctx.data.seen.has(0))m.push("看 E 在 B 左边");
-  if(!ctx.data.seen.has(1))m.push("看 E 在 B 右边");
-  if(ctx.data.seen.size>=2&&!ctx.data.explained)m.push("想清楚坐标和距离为什么不一样");
-  return "还差："+m.join("；");},
- summary:"方程 |x−1|=6 的两个解是坐标 x=−5 和 x=7；题目问的距离 EA 再取绝对值，是 5 和 7。坐标能负，距离不会负。",
- condition:"E 只说在直线上、没说在 B 哪一侧，左右都要算；方程解的是坐标，距离要再取绝对值。"
+ isTaskDone(ctx){return ctx.data.finished===true;},
+ remaining(ctx){const m={0:"独立拖 E 找第一个离 B 恰好 5 的点",1:"自己找出另一个点",2:"看射线，判断该舍去哪个"};
+  return "还差："+(m[ctx.data.step]||"完成这一步");},
+ summary:"独立找：离 B 恰好 5 的点有两个，坐标 −3 和 7 是方程 |x−2|=5 的解；到 A 的距离再取绝对值，是 3 和 7。限射线 AB（x≥0）后舍去左边的 −3，只留 7。",
+ condition:"直线上左右都要自己找；加射线后先看射线方向和点在 A 哪一边，射线外的那个舍去。方程解坐标，距离再取绝对值。"
 };
 
 /* ---------- E15 度分秒 ---------- */

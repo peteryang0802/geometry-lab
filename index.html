@@ -81,6 +81,8 @@ h1,h2,h3{line-height:1.3;margin:0 0 14px;}
 .phase{flex:1;min-width:120px;text-align:center;padding:10px;border-radius:12px;background:#fff;border:2.5px solid var(--line);font-size:18px;font-weight:700;color:var(--muted);}
 .phase.active{background:var(--accent,var(--t1));color:#fff;border-color:var(--accent,var(--t1));}
 .phase.done{background:var(--soft,var(--t1-soft));color:var(--accent-ink,var(--t1-ink));border-color:var(--accent,var(--t1));}
+.phase.done{cursor:pointer;transition:transform .15s ease, box-shadow .15s ease;}
+.phase.done:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,.12);}
 .panel{background:var(--card);border-radius:var(--radius);padding:30px;box-shadow:var(--shadow);margin-bottom:24px;}
 .panel h3{font-size:25px;}
 .lab-wrap{position:relative;min-height:300px;display:flex;flex-direction:column;}
@@ -123,6 +125,15 @@ svg{max-width:100%;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .summary-big{font-size:24px;font-weight:800;}
 .cond{font-size:18px;color:var(--muted);margin-top:10px;}
+
+/* ---- 动手后出现的公式卡片 ---- */
+.formula-card{width:100%;max-width:860px;margin-top:16px;border-radius:16px;padding:18px 24px;background:#fff;border:2.5px solid var(--fc,var(--accent));border-left:10px solid var(--fc,var(--accent));box-shadow:0 8px 24px rgba(0,0,0,.08);text-align:center;}
+.formula-card .f-title{font-weight:900;font-size:16px;color:var(--fc,var(--accent));letter-spacing:2px;margin-bottom:8px;}
+.formula-card .f-body{font-size:24px;font-weight:800;color:#1f2937;line-height:1.65;}
+.formula-card .f-body .hl{color:var(--fc,var(--accent));}
+.formula-card .f-note{font-size:16px;color:var(--muted);margin-top:8px;font-weight:600;}
+.formula-card.show{animation:fpop .45s ease both;}
+@keyframes fpop{0%{opacity:0;transform:translateY(14px) scale(.97);}100%{opacity:1;transform:none;}}
 
 /* ---- 备查卡片 ---- */
 .ref-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;}
@@ -334,6 +345,12 @@ function openExp(id){
   <div class="panel hidden" id="summaryPanel"><h3>③ 说人话</h3><div id="summaryZone"></div>
     <div class="btns" id="finishBtns"></div></div>`;
  $("#muteBtn").onclick=()=>{toggleMute();$("#muteBtn").textContent=state.muted?"🔇":"🔊";};
+ $("#app").querySelector(".phase-track").addEventListener("click",e=>{
+   const ph=e.target.closest(".phase");if(!ph||!ph.classList.contains("done"))return;
+   const panels=["guessPanel","labPanel","summaryPanel"];
+   const p=document.getElementById(panels[+ph.dataset.ph]);
+   if(p)p.scrollIntoView({behavior:"smooth",block:"start"});
+ });
  setPhase(0);
  const ctx=makeCtx(lv,tp);
  mod.buildGuess($("#guessZone"),ctx);
@@ -353,6 +370,24 @@ function openExp(id){
  };
 }
 function makeCtx(lv,tp){return {lv,tp,data:{},guess:null,check(){}};}
+function makeFormulaCard(zone,color){
+ const el=document.createElement("div");
+ el.className="formula-card";
+ if(color)el.style.setProperty("--fc",color);
+ el.style.display="none";
+ zone.appendChild(el);
+ let shown=false;
+ return {
+  el,
+  render(c){
+   el.innerHTML=(c.title?`<div class="f-title">${c.title}</div>`:"")
+    +`<div class="f-body">${c.body}</div>`
+    +(c.note?`<div class="f-note">${c.note}</div>`:"");
+   if(!shown){el.style.display="";requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add("show")));shown=true;}
+  },
+  hide(){el.classList.remove("show");el.style.display="none";shown=false;}
+ };
+}
 function setPhase(n){document.querySelectorAll(".phase").forEach((el,i)=>{el.classList.remove("active","done");if(i<n)el.classList.add("done");if(i===n)el.classList.add("active");});}
 function restoreGuessUI(zone,guess,mod){
  if(mod.restoreGuess){mod.restoreGuess(zone,guess);return;}
@@ -373,7 +408,7 @@ function enterLab(lv,tp,ctx,mod){
  doneBtn.className="btn btn-primary";doneBtn.textContent=hasJudge?"我做出来了":"我做完这一步了";
  let touched=false;
  function refresh(){
-   if(hasJudge){const ok=mod.isTaskDone(ctx);doneBtn.disabled=!ok;}
+   if(hasJudge){doneBtn.disabled=false;}
    else{doneBtn.disabled=!touched;}
  }
  ctx.check=refresh;
@@ -386,7 +421,11 @@ function enterLab(lv,tp,ctx,mod){
  }
  hintBtn.onclick=()=>{toast(typeof mod.hint==="function"?mod.hint(ctx):(mod.hint||"再动一动手，注意看什么变了、什么没变。"));};
  doneBtn.onclick=()=>{
-   if(hasJudge&&!mod.isTaskDone(ctx)){toast(mod.hint||"还差一点，再试试。");return;}
+   if(hasJudge&&!mod.isTaskDone(ctx)){
+     const r=typeof mod.remaining==="function"?mod.remaining(ctx):null;
+     toast(r||(typeof mod.hint==="function"?mod.hint(ctx):(mod.hint||"还差一点，再试试。")));
+     return;
+   }
    if(!hasJudge&&!touched){toast("先在图上动手试一试，再点这里。");return;}
    finishTask(lv,tp,ctx,mod);
  };
@@ -883,6 +922,7 @@ E.E1={
      '<div class="status-bar">3D 暂时没加载出来，下面的调层还能用，先搭着。</div>');});
  },
  isTaskDone(ctx){return ctx.data.goals.FL&&ctx.data.goals.BL;},
+ remaining(ctx){const g=ctx.data.goals,m=[];if(!g.FL)m.push("用 4 块搭出前左叠 2 的摆法");if(!g.BL)m.push("用 4 块搭出后左叠 2 的摆法");return "还差："+m.join("；");},
  summary:"俯视图定位置、主视图定高度；4 块有两种摆法，第二层放前左或后左都合格，最多 5 块。",
  condition:"每个俯视图位置至少1个；左列最高2、右列最高1，满足才算对，6 块会超出左列高度。"
 };
@@ -1026,6 +1066,7 @@ E.E2={
    window.addEventListener("resize",()=>applyFit(+rng.value/100));
  },
  isTaskDone(ctx){return ctx.data.goals.folded&&ctx.data.goals.clash;},
+ remaining(ctx){const g=ctx.data.goals,m=[];if(!g.folded)m.push("把能折的网拖到最后，完整折成一个盒子");if(!g.clash)m.push("切到折不成的网，拖到看到两个面撞在一起");return "还差："+m.join("；");},
  summary:"能折成的，六个面各就各位；折不成的，一定有两个面抢同一个位置。亲手折一遍最靠谱。",
  condition:"田字形、一条线超过4个面只是经验线索，不是完整规则，最终以折叠是否重叠为准。"
 };
@@ -1103,6 +1144,7 @@ E.E3={
    })().catch(()=>{st.textContent="3D 暂时没加载出来，检查网络后刷新试试。";});
  },
  isTaskDone(ctx){return ctx.data.visited.size>=3;},
+ remaining(ctx){return "还差：三对对面都点一遍，现在只看了 "+ctx.data.visited.size+" 对";},
  buildReflect(zone,ctx){
    const v=ctx.guess;
    const mt=v==="unsure"?"我不确定":["面2","面3","面5","面6"][v];
@@ -1310,6 +1352,7 @@ E.E5={
    render();
  },
  isTaskDone(ctx){return ctx.data.goals.rect&&ctx.data.goals.para;},
+ remaining(ctx){const g=ctx.data.goals,m=[];if(!g.rect)m.push("垂直拖动线段，扫出一个长方形");if(!g.para)m.push("斜着拖动线段，扫出一个平行四边形");return "还差："+m.join("；");},
  summary:"线段平移会扫出面；垂直拖出长方形，斜着拖出平行四边形，顺着线拖不成面。",
  condition:"移动方向决定扫出的形状；沿线段自身方向平移，不会形成新的面。"
 };
@@ -1661,6 +1704,7 @@ E.E8={
    })().catch(e=>{st.textContent="3D 暂时没加载出来，检查网络后刷新试试。";});
  },
  isTaskDone(ctx){return ctx.data.goals.tri&&ctx.data.goals.quad;},
+ remaining(ctx){const g=ctx.data.goals,m=[];if(!g.tri)m.push("切一个角，截出三角形");if(!g.quad)m.push("换个切法，截出四边形");return "还差："+m.join("；");},
  summary:"三棱锥只有4个面，刀最多碰到4条棱，所以截面最多是四边形，切不出五边形；切一个角是三角形。",
  condition:"截面边数等于刀碰到的棱数；三棱锥共6条棱，但一刀最多同时穿过4条，所以最多四边形。"
 };
@@ -2006,6 +2050,7 @@ E.E12={
  task:"先在河岸上拖两个不同的落点，比一比连线长度；再找到和直线成直角的那个垂足。两件事都做到。",
  hint:"盯着长度数字看。落点往两边走，数字都变大；只有成直角的垂足，数字最小。",
  isTaskDone(ctx){return ctx.data.tries.size>=2&&ctx.data.foot;},
+ remaining(ctx){const m=[];if(ctx.data.tries.size<2)m.push("在河岸上拖两个不同的落点比一比");if(!ctx.data.foot)m.push("找到和直线成直角的那个垂足");return "还差："+m.join("；");},
  summary:"直线外一点到直线的所有线段里，垂线段最短。",
  condition:"垂线段长度就是点到直线的距离；落点离开垂足，两边的线段都变长。"
 };
@@ -2247,6 +2292,7 @@ E.E15={
    render();
  },
  isTaskDone(ctx){return ctx.data.goal.to3030&&ctx.data.goal.carry;},
+ remaining(ctx){const m=[];if(!ctx.data.goal.to3030)m.push("把度分秒拨到 30°30′");if(!ctx.data.goal.carry)m.push("在秒位满 60 时进 1，看到分针跟着走");return "还差："+m.join("；");},
  summary:"度、分、秒是 60 进制：1°=60′、1′=60″，满 60 进 1；一圈60格，大格里头套小格。",
  condition:"小数部分换60进制，不是10或100；读数先读度、再分、再秒，进位和钟表同理但表示角度。"
 };
@@ -2624,6 +2670,7 @@ E.E20={
  isTaskDone(ctx){
    const c=ctx.data.cur;return c.h===3&&c.m===10;
  },
+ remaining(ctx){return "还差：把钟表拨到 3 点 10 分，现在是 "+ctx.data.cur.h+" 点 "+ctx.data.cur.m+" 分";},
  summary:"分针6°/分、时针0.5°/分（30°/时）；3:10夹角35°，因为时针也在走。",
  condition:"先算两针各自角度，再取小夹角；输入超界会自动进位，夹角永远在0到180之间。"
 };
@@ -2652,6 +2699,7 @@ E.E21={
      <div class="status-bar" id="s23" style="max-width:820px;margin-top:12px"></div></div>`;
    const svg=zone.querySelector("#svg23"),st=zone.querySelector("#s23"),modeBar=zone.querySelector("#mode23"),nBar=zone.querySelector("#n23");
    let mode=0,n=4,cur=-1;
+   const fcard=makeFormulaCard(zone,"#7c3aed");
    function pairs(){const p=[];for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)p.push([i,j]);return p;}
    const total=()=>n*(n-1)/2;
    // 角视图参数
@@ -2686,6 +2734,7 @@ E.E21={
      else if(cur>=ps.length-1)st.textContent=`数完了，一共 ${total()} 个。公式：${n} 选 2 = ${n}×${n-1}÷2 = ${total()}。`;
      else st.textContent=`已数 ${counted} 个 / 共 ${total()} 个。`;
      [...modeBar.children].forEach((b,i)=>{b.style.background=i===mode?"var(--accent)":"#fff";b.style.color=i===mode?"#fff":"var(--accent)";});
+     if(cur>=total()-1)fcard.render({title:"数出来的公式",body:`总数 = <span class="hl">${n}×${n-1}÷2 = ${total()}</span>`,note:"数角和数线段都一样，每两个元素配一对，不重不漏。"});
    }
    [2,3,4,5,6].forEach(v=>{const b=document.createElement("button");b.className="mini-btn";b.textContent=v+"个";
      b.onclick=()=>{n=v;cur=-1;sfx("click");render();};nBar.appendChild(b);});
@@ -2737,6 +2786,7 @@ E.E22={
      const stage=await ThreeStage.create(host,{height:440,camX:5.2,camY:3,camZ:6.4,bg:0xffffff});
      const THREE=stage.THREE;
      let mode=0,n=4,group=null;
+    let acted=false;const fcard=makeFormulaCard(zone,"#0891b2");
      const ballGeo=new THREE.SphereGeometry(.11,16,16),ballMat=new THREE.MeshStandardMaterial({color:0x92400e,roughness:.4});
      function clearGroup(){if(!group)return;
        group.traverse(o=>{if(o.geometry&&o.geometry!==ballGeo)o.geometry.dispose();
@@ -2775,10 +2825,14 @@ E.E22={
        zone.querySelector("#fF").textContent=mode===0?`n+2 = ${n}+2`:`n+1 = ${n}+1`;
        st.textContent=`${n} ${nm}：顶点 ${V}、棱 ${E}、面 ${F}。多换几个 n，看能不能自己把规律摸出来。`;
        [...modeBar.children].forEach((b,i)=>{b.style.background=i===mode?"var(--accent)":"#fff";b.style.color=i===mode?"#fff":"var(--accent)";});
+     if(acted){
+       if(mode===0)fcard.render({title:"棱柱的规律（n 棱柱）",body:`顶点 <span class="hl">2n</span> · 棱 <span class="hl">3n</span> · 面 <span class="hl">n+2</span>`,note:"上下两个底，再加 n 个侧面。"});
+       else fcard.render({title:"棱锥的规律（n 棱锥）",body:`顶点 <span class="hl">n+1</span> · 棱 <span class="hl">2n</span> · 面 <span class="hl">n+1</span>`,note:"一个底，再加 n 个侧面。"});
+     }
      }
      [3,4,5,6,8].forEach(v=>{const b=document.createElement("button");b.className="mini-btn";b.textContent=v;
-       b.onclick=()=>{n=v;sfx("click");build();};nBar.appendChild(b);});
-     [...modeBar.children].forEach((b,i)=>b.onclick=()=>{mode=i;sfx("click");build();});
+       b.onclick=()=>{n=v;acted=true;sfx("click");build();};nBar.appendChild(b);});
+     [...modeBar.children].forEach((b,i)=>b.onclick=()=>{mode=i;acted=true;sfx("click");build();});
      build();
    })().catch(()=>{st.textContent="3D 暂时没加载出来，检查网络后刷新试试。";});
  },
@@ -2822,6 +2876,7 @@ E.E23={
      <svg viewBox="0 0 600 380" id="svg23n" style="width:100%;max-width:760;margin-top:8px"></svg>
      <div class="status-bar" id="s23n" style="max-width:820px"></div></div>`;
    const svg=zone.querySelector("#svg23n"),st=zone.querySelector("#s23n"),mBar=zone.querySelector("#mBar23"),layerBar=zone.querySelector("#layerBar23"),goalZone=zone.querySelector("#goalZone23");
+   const fcard=makeFormulaCard(zone,"#16a34a");
    const A={x:300,y:70},TY=200,BY=330;
    const baseX=i=>110+i*(380/(ctx.data.m-1));
    const t=(TY-A.y)/(BY-A.y);
@@ -2872,6 +2927,9 @@ E.E23={
      else if(done<pt)st.textContent=`这一层已配 ${done}/${pt} 个。想想还有哪两个点没配。`;
      else st.textContent=`这一层 ${pt} 个全配完了。${layer===0?"切到整体那层继续。":"两层都齐了，总数是 "+(2*pt)+" 个。"}`;
      [...layerBar.children].forEach((b,i)=>{b.style.background=i===layer?"var(--accent)":"#fff";b.style.color=i===layer?"#fff":"var(--accent)";});
+     const pk=ctx.data.picked;
+     if(pk.top.size===pt&&pk.bottom.size===pt)fcard.render({title:"全部加起来",body:`总数 = 2×${pt} = <span class="hl">${m}×${m-1} = ${2*pt}</span>`,note:"上下两层一样多，乘 2。"});
+     else if(pk.top.size===pt)fcard.render({title:"每层有几个",body:`每层 = <span class="hl">${m}×${m-1}÷2 = ${pt}</span>`,note:"同一层横线上 m 个点，两两配对。"});
      ctx.check();
    }
    [3,4,5].forEach(v=>{const b=document.createElement("button");b.className="mini-btn";b.textContent=v+"条线";
@@ -2883,6 +2941,7 @@ E.E23={
    const pt=ctx.data.m*(ctx.data.m-1)/2;
    return ctx.data.picked.top.size===pt&&ctx.data.picked.bottom.size===pt;
  },
+ remaining(ctx){const pt=ctx.data.m*(ctx.data.m-1)/2,m=[];if(ctx.data.picked.top.size<pt)m.push("把上层（截线）的三角形配完");if(ctx.data.picked.bottom.size<pt)m.push("把整体（到底边）的三角形配完");return "还差："+m.join("；");},
  summary:"每层的三角形数 = 横线上 m 个点两两配对 = m(m−1)÷2；上下两层一样，总数 m(m−1)。",
  condition:"m=3 时每层3个、两层共6个；分清截线以上的小三角形和到底边的大三角形。"
 };
@@ -2906,7 +2965,7 @@ E.E24={
  task:"自己一条一条加，一直加到 5 条，盯着交点数和块数，看每加一条多了几个。",
  hint:"新加的这条，和前面几条相交就有几个交点；这几个点把新线分成几段，每段就把一块劈成两块。",
  buildLab(zone,ctx){
-   const W=600,H=380,L=this.LINES;
+   const W=600,H=380,L=E.E24.LINES,COLORS=E.E24.LINE_COLORS;
    ctx.data.n=0;
    zone.innerHTML=`<div class="scene">
      <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:8px">
@@ -2920,6 +2979,7 @@ E.E24={
        <div style="background:#f0fdf4;border-left:6px solid #16a34a;border-radius:10px;padding:10px 22px"><div style="font-weight:800;color:#14532d">分成几块</div><div style="font-size:32px;font-weight:900" id="vR"></div></div></div>
      <div class="status-bar" id="s24n" style="max-width:820px;margin-top:12px"></div></div>`;
    const svg=zone.querySelector("#svg24n"),st=zone.querySelector("#s24n");
+   const fcard=makeFormulaCard(zone,"#ea580c");
    function clip(P,d){
      let tmin=-1e9,tmax=1e9;
      if(Math.abs(d.dx)<1e-9){if(P.px<0||P.px>W)return null;}
@@ -2940,7 +3000,7 @@ E.E24={
      for(let i=0;i<n;i++){
        const seg=clip(L[i],L[i]);
        const isNew=i===n-1;
-       s+=`<line x1="${seg.a.x}" y1="${seg.a.y}" x2="${seg.b.x}" y2="${seg.b.y}" stroke="${this.LINE_COLORS[i]}" stroke-width="${isNew?5:3}" stroke-linecap="round"/>`;
+       s+=`<line x1="${seg.a.x}" y1="${seg.a.y}" x2="${seg.b.x}" y2="${seg.b.y}" stroke="${COLORS[i]}" stroke-width="${isNew?5:3}" stroke-linecap="round"/>`;
      }
      // 交点
      for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
@@ -2958,6 +3018,7 @@ E.E24={
        const newI=n-1,newR=n;
        st.textContent=`第 ${n} 条线和前面 ${newI} 条相交，多出 ${newI} 个交点；它被分成 ${n} 段，新增 ${newR} 块，现在一共 ${rg} 块。`;
      }
+     if(n>=2)fcard.render({title:"数出来的公式",body:`交点 <span class="hl">${n}×${n-1}÷2 = ${ip}</span> · 块数 <span class="hl">1+${n}×${n+1}÷2 = ${rg}</span>`,note:`第 ${n} 条线和前面 ${n-1} 条相交，被分成 ${n} 段，新增 ${n} 块。`});
      ctx.check();
    }
    zone.querySelector("#addL").onclick=()=>{if(ctx.data.n<5){ctx.data.n++;sfx("good");render();}else toast("最多画 5 条，已经到了。");};
@@ -2966,6 +3027,7 @@ E.E24={
    render();
  },
  isTaskDone(ctx){return ctx.data.n>=5;},
+ remaining(ctx){return "还差：继续加直线，现在 "+ctx.data.n+" 条，要加到 5 条";},
  summary:"n 条直线最多 n(n−1)÷2 个交点；最多把平面分成 1+n(n+1)÷2 块。5 条时 10 个交点、16 块。",
  condition:"第 n 条线与前 n−1 条都相交、不三线共点，才有 n−1 个新交点、n 个新区域。"
 };

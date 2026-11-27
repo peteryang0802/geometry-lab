@@ -2951,12 +2951,14 @@ E.E24={
  LINES:[{"px":271.89,"py":186.1,"dx":0.30838,"dy":0.95126},{"px":357.44,"py":167.92,"dx":-0.27985,"dy":0.96004},{"px":275.01,"py":160.65,"dx":-0.81524,"dy":0.57912},{"px":366.08,"py":206.81,"dx":0.98116,"dy":0.19321},{"px":378.4,"py":239.55,"dx":-0.9743,"dy":0.22525}],
  LINE_COLORS:["#0891b2","#ea580c","#db2777","#16a34a","#7c3aed"],
  buildGuess(zone,ctx){
-   zone.innerHTML=`<p class="muted">在同一平面里一条一条加直线，让每条都和前面的相交、但不三条挤在一个点。<b>5 条直线最多把平面分成几块？</b></p>
+   zone.innerHTML=`<p class="muted">在同一平面里一条一条加直线，每条都和前面的相交，每个交点只有两条线交叉，别让三条线交在同一个点。<b>5 条直线最多把平面分成几块？</b></p>
      <svg viewBox="0 0 600 180" style="width:100%;max-width:640px;margin:6px 0">
-       <line x1="90" y1="40" x2="470" y2="150" stroke="#0891b2" stroke-width="4"/>
-       <line x1="120" y1="150" x2="500" y2="35" stroke="#ea580c" stroke-width="4"/>
-       <line x1="60" y1="100" x2="540" y2="90" stroke="#db2777" stroke-width="4"/>
-       <circle cx="300" cy="95" r="9" fill="#dc2626"/></svg>
+       <line x1="60" y1="50" x2="540" y2="50" stroke="#0891b2" stroke-width="4"/>
+       <line x1="450" y1="30" x2="270" y2="150" stroke="#ea580c" stroke-width="4"/>
+       <line x1="150" y1="30" x2="330" y2="150" stroke="#db2777" stroke-width="4"/>
+       <circle cx="180" cy="50" r="9" fill="#dc2626"/>
+       <circle cx="420" cy="50" r="9" fill="#dc2626"/>
+       <circle cx="300" cy="130" r="9" fill="#dc2626"/></svg>
      ${choiceHtml(["11 块","14 块","16 块","我不确定"])}`;
    ctx.data.choice=bindChoice(zone);
  },
@@ -3029,7 +3031,7 @@ E.E24={
  isTaskDone(ctx){return ctx.data.n>=5;},
  remaining(ctx){return "还差：继续加直线，现在 "+ctx.data.n+" 条，要加到 5 条";},
  summary:"n 条直线最多 n(n−1)÷2 个交点；最多把平面分成 1+n(n+1)÷2 块。5 条时 10 个交点、16 块。",
- condition:"第 n 条线与前 n−1 条都相交、不三线共点，才有 n−1 个新交点、n 个新区域。"
+ condition:"第 n 条线与前 n−1 条都相交，而且每个交点只有两条线交叉（没有三条线交于同一点），才有 n−1 个新交点、n 个新区域。"
 };
 
 /* ================= 基础备查卡片 ================= */

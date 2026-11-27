@@ -922,6 +922,7 @@ E.E4={
      task=zone.querySelector("#task7"),nextBtn=zone.querySelector("#nextPair7"),
      doneBtn=zone.querySelector("#done7");
    function render(){
+     ctx.data.snap={round,pick,anchor,totalRounds:rounds.length};
      const folded=boxFold(faces,progress),order=folded.order;
      cube.innerHTML="";
      const flat=progress<.02;
@@ -979,6 +980,10 @@ E.E4={
    cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;
    render();
  },
+ isTaskDone(ctx){const s=ctx.data.snap;return !!s&&s.round===s.totalRounds-1&&s.pick===this.OPP[s.anchor];},
+ remaining(ctx){const s=ctx.data.snap;if(!s)return "动手找相对的面";
+   if(s.pick!==this.OPP[s.anchor])return "还差：把第二颗星贴到背对背的那个面，折起来验证";
+   return "还差：点'再试一对'，把三对相对的面都找齐（现在第 "+(s.round+1)+" 轮）";},
  buildReflect(zone,ctx){
    zone.innerHTML=`<div class="guess-vs">
      <div class="col mine"><h4>我一开始贴在</h4><p>${ctx.guess.unsure?"我不确定":("面 "+ctx.guess.pick)}</p></div>
@@ -1017,6 +1022,7 @@ E.E6={
      <div id="host9" style="width:100%;min-height:460px"></div>
      <div class="status-bar" id="s9" style="max-width:780px">先选一个平面图形，再点'转一圈'。</div></div>`;
    const host=zone.querySelector("#host9"),st=zone.querySelector("#s9"),tabs=zone.querySelector("#shapeTabs");
+   ctx.data.swept=false;
    (async()=>{
      const stage=await ThreeStage.create(host,{height:460,camX:4.2,camY:2.6,camZ:5.2});
      const THREE=stage.THREE,V2=THREE.Vector2;
@@ -1063,18 +1069,20 @@ E.E6={
        stopAnim();t=0;const dur=2600,t0=performance.now(),pts=DEFS[cur].pts();
        function frame(now){const p=Math.min(1,(now-t0)/dur);t=p;
          clearMesh(sweepMesh);sweepMesh=makeSweep(pts,p*Math.PI*2);stage.scene.add(sweepMesh);
-         if(p>=1){anim=null;st.textContent=DEFS[cur].label+"，转满一周，扫出来的就是这个立体。";sfx("good");}
+         if(p>=1){anim=null;ctx.data.swept=true;st.textContent=DEFS[cur].label+"，转满一周，扫出来的就是这个立体。";sfx("good");ctx.check();}
          else{anim=requestAnimationFrame(frame);}}
        anim=requestAnimationFrame(frame);
      }
      zone.querySelector("#play9").onclick=()=>{sfx("good");play();};
      zone.querySelector("#showFull").onclick=()=>{stopAnim();
        const pts=DEFS[cur].pts();clearMesh(sweepMesh);sweepMesh=makeSweep(pts,Math.PI*2);stage.scene.add(sweepMesh);
-       st.textContent="这是转满一周后的成品。";sfx("click");stage.render();};
+       ctx.data.swept=true;st.textContent="这是转满一周后的成品。";sfx("click");stage.render();ctx.check();};
      [...tabs.children][1].style.outline="3px solid var(--accent)";
      loadShape("cone",0);
    })().catch(e=>{st.textContent="3D 暂时没加载出来，检查网络后刷新试试。";});
  },
+ isTaskDone(ctx){return ctx.data.swept===true;},
+ remaining(ctx){return "还差：选一个图形，点'转一圈'让它转满一周，或点'直接看成品'。";},
  buildReflect(zone,ctx){
    const v=ctx.guess;const mt=v==="unsure"?"我不确定":["圆柱","圆锥","球","圆台"][v];
    zone.innerHTML=`<div class="guess-vs">
@@ -1156,8 +1164,10 @@ E.E7={
      const cubeEdges=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2,2,2)),
        new THREE.LineBasicMaterial({color:0x155e75}));
      stage.scene.add(cubeEdges);
-     let planeMesh=null,secGroup=null;
+     let planeMesh=null,secGroup=null,lastCnt=0;
+     ctx.data.edgeCounts=new Set();
      const nameByCount=c=>c===3?"三角形":c===4?"四边形":c===5?"五边形":c===6?"六边形":(""+c+"个点");
+     function trackEdge(){if(lastCnt>=3)ctx.data.edgeCounts.add(lastCnt);ctx.check();}
      function render(){
        if(planeMesh){planeMesh.geometry.dispose();planeMesh.material.dispose();stage.scene.remove(planeMesh);}
        if(secGroup){secGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});stage.scene.remove(secGroup);}
@@ -1183,7 +1193,7 @@ E.E7={
        }
        stage.scene.add(secGroup);
        zone.querySelector("#dVal").textContent=d.toFixed(2);
-       const cnt=pts.length;
+       const cnt=pts.length;lastCnt=cnt;
        if(cnt<3)st.textContent="这一刀还没切到正方体，拖滑块或换个切法。";
        else st.textContent=`现在切出的是${nameByCount(cnt)}，有 ${cnt} 条边——平面和 ${cnt} 个面相交。`;
        stage.render();
@@ -1193,16 +1203,18 @@ E.E7={
        b.onclick=()=>{cur=i;n=new THREE.Vector3(...p.n);d=p.d;
          rng.value=Math.round(d*100);
          [...tabs.children].forEach(x=>x.style.outline="none");b.style.outline="3px solid var(--accent)";
-         render();sfx("click");};
+         render();trackEdge();sfx("click");};
        tabs.appendChild(b);
      });
-     rng.addEventListener("input",()=>{d=+rng.value/100;render();});
+     rng.addEventListener("input",()=>{d=+rng.value/100;render();trackEdge();});
      rng.addEventListener("change",()=>sfx("click"));
      [...tabs.children][cur].style.outline="3px solid var(--accent)";
      rng.value=Math.round(d*100);
      render();
    })().catch(e=>{st.textContent="3D 暂时没加载出来，检查网络后刷新试试。";});
  },
+ isTaskDone(ctx){return ctx.data.edgeCounts.size>=2;},
+ remaining(ctx){return "还差：拖滑块或点预设，调出至少两种边数不同的截面（现在 "+ctx.data.edgeCounts.size+" 种）。";},
  buildReflect(zone,ctx){
    const v=ctx.guess;const mt=v==="unsure"?"我不确定":["四边形","五边形","六边形","七边形"][v];
    zone.innerHTML=`<div class="guess-vs">
@@ -1475,18 +1487,32 @@ E.E13={
    const labAC=zone.querySelector("#labAC"),labCB=zone.querySelector("#labCB");
    let C={x:300,y:160};
    const K=40; // 40 像素算 1 个单位，整条 AB 400 像素 = 10
-   const handle=svgHandle(svg,{x:300,y:160},pt=>{pt.y=160;pt.x=Math.max(A.x,Math.min(B.x,pt.x));C={x:pt.x,y:160};draw();},"#db2777");
+   ctx.data.midPlaced=false;
+   const MID=300,SNAP=12;
+   const handle=svgHandle(svg,{x:300,y:160},pt=>{
+     pt.y=160;
+     let rawX=Math.max(A.x,Math.min(B.x,pt.x));
+     pt.x=Math.abs(rawX-MID)<=SNAP?MID:rawX;
+     C={x:pt.x,y:160};draw();
+   },"#db2777",()=>{
+     if(Math.abs(C.x-MID)<1e-9){ctx.data.midPlaced=true;sfx("good");}
+     draw();ctx.check();
+   });
    function draw(){
+     const isMid=Math.abs(C.x-MID)<1e-9;
      const ac=(C.x-A.x)/K,cb=10-ac;
      labAC.setAttribute("x",(A.x+C.x)/2);labAC.textContent="AC="+ac.toFixed(1);
      labCB.setAttribute("x",(C.x+B.x)/2);labCB.textContent="CB="+cb.toFixed(1);
-     if(Math.abs(C.x-300)<2)st.textContent=`C 正好在中点：AC=CB=5.0，都是 AB 的一半（AB=10）。`;
+     const hh=svg.querySelector(".svg-handle");if(hh)hh.setAttribute("fill",isMid?"#16a34a":"#db2777");
+     if(isMid)st.textContent=`吸住中点啦：AC=CB=5.0，都是 AB 的一半（AB=10）。松手就记下你找到中点。`;
      else st.textContent=`AC=${ac.toFixed(1)}，CB=${cb.toFixed(1)}，加起来正好是 AB=10，怎么拖都不变。只有中点两段才相等。`;
    }
    [...tabs.children][0].onclick=()=>{sfx("click");toast("直接拖那个圆点就行。");};
-   [...tabs.children][1].onclick=()=>{handle.set(300,160);C={x:300,y:160};sfx("click");draw();};
+   [...tabs.children][1].onclick=()=>{handle.set(300,160);C={x:300,y:160};ctx.data.midPlaced=true;sfx("click");draw();ctx.check();};
    draw();
  },
+ isTaskDone(ctx){return ctx.data.midPlaced===true;},
+ remaining(ctx){return ctx.data.midPlaced?"":"还差：把圆点拖到两段相等的中点，看到 AC=CB=5.0 再松手。";},
  buildReflect(zone,ctx){
    const mt=ctx.guess==="unsure"?"我不确定":["5","10","20"][ctx.guess];
    zone.innerHTML=`<div class="guess-vs">
@@ -1546,10 +1572,13 @@ E.E14={
      bcTxt.setAttribute("x",(cx+Bx)/2);bcTxt.textContent="BC=4";
      st.textContent=expr+"，所以 AC="+ac+"。";
    }
-   [...tabs.children][0].onclick=()=>{sfx("click");show(0);};
-   [...tabs.children][1].onclick=()=>{sfx("click");show(1);};
+   ctx.data.seenSides=new Set();
+   [...tabs.children][0].onclick=()=>{ctx.data.seenSides.add(0);sfx("click");show(0);ctx.check();};
+   [...tabs.children][1].onclick=()=>{ctx.data.seenSides.add(1);sfx("click");show(1);ctx.check();};
    show(0);
  },
+ isTaskDone(ctx){return ctx.data.seenSides.size>=2;},
+ remaining(ctx){const m=[];if(!ctx.data.seenSides.has(0))m.push("看 C 在 B 左边（线段上）");if(!ctx.data.seenSides.has(1))m.push("看 C 在 B 右边（延长线）");return "还差："+m.join("；");},
  buildReflect(zone,ctx){
    const mt=ctx.guess==="unsure"?"我不确定":["6","14","6 或 14"][ctx.guess];
    zone.innerHTML=`<div class="guess-vs">
@@ -2186,11 +2215,16 @@ E.E16={
      [...tabs.children].forEach((b,i)=>{b.style.background=i===mode?"var(--accent)":"#fff";b.style.color=i===mode?"#fff":"var(--accent)";});
    }
    [...tabs.children].forEach((b,i)=>b.onclick=()=>{mode=i;step=0;sfx("click");render();});
+   ctx.data.addDone=false;ctx.data.subDone=false;
    zone.querySelector("#next18").onclick=()=>{const max=(mode?subSteps:addSteps).length-1;
-     if(step<max){step++;sfx("click");render();}else toast("这一步看完了，可切另一个。");};
+     if(step<max){step++;sfx("click");render();
+       if(step===max){if(mode)ctx.data.subDone=true;else ctx.data.addDone=true;sfx("good");ctx.check();}
+     }else toast("这一步看完了，可切另一个。");};
    zone.querySelector("#prev18").onclick=()=>{if(step>0){step--;sfx("click");render();}};
    render();
  },
+ isTaskDone(ctx){return ctx.data.addDone&&ctx.data.subDone;},
+ remaining(ctx){const m=[];if(!ctx.data.addDone)m.push("点'下一步'看完加法进位");if(!ctx.data.subDone)m.push("切到减法，看完借位");return "还差："+m.join("；");},
  buildReflect(zone,ctx){
    const mt=ctx.guess==="unsure"?"我不确定":["60°75′","61°15′","61°75′"][ctx.guess];
    zone.innerHTML=`<div class="guess-vs">
@@ -2263,12 +2297,17 @@ E.E18={
      if(!dragging)return;
      const m=pointFromEvent(e);
      let a=Math.atan2(O.y-m.y,m.x-O.x)*180/Math.PI;
-     a=Math.max(2,Math.min(88,a));alpha=a;render();
+     a=Math.max(2,Math.min(88,a));
+     if(Math.abs(a-alpha)>0.5)ctx.data.dragged=true;
+     alpha=a;render();ctx.check();
    });
    svg.addEventListener("pointerup",()=>{if(dragging){dragging=false;sfx("good");}});
-   [...tabs.children].forEach((b,i)=>b.onclick=()=>{mode=i;sfx("click");render();});
+   ctx.data.seenModes=new Set();
+   [...tabs.children].forEach((b,i)=>b.onclick=()=>{mode=i;ctx.data.seenModes.add(i);sfx("click");render();ctx.check();});
    render();
  },
+ isTaskDone(ctx){return ctx.data.seenModes.size>=2&&ctx.data.dragged===true;},
+ remaining(ctx){const m=[];if(!ctx.data.dragged)m.push("拖圆点改变角度");if(ctx.data.seenModes.size<2)m.push("余角、补角两个都点一遍");return "还差："+m.join("；");},
  summary:"余角和为90°、补角和为180°；同角的余角相等、补角相等。",
  condition:"互为余角/补角说的是两个角的度数关系，跟位置无关。"
 };
@@ -2328,9 +2367,10 @@ E.E19={
      st.textContent="这个方向读作："+describe(theta)+"。";
    }
    const eight=[["北",0],["东北",45],["东",90],["东南",135],["南",180],["西南",225],["西",270],["西北",315]];
+   ctx.data.visitedDirs=new Set();
    eight.forEach(([nm,t])=>{
      const b=document.createElement("button");b.className="mini-btn";b.textContent=nm;
-     b.onclick=()=>{theta=t;sfx("click");render();};dirs.appendChild(b);
+     b.onclick=()=>{theta=t;ctx.data.visitedDirs.add(t);sfx("click");render();ctx.check();};dirs.appendChild(b);
    });
    svg.addEventListener("pointerdown",e=>{
      if(e.target.id==="dragH"){dragging=true;svg.setPointerCapture(e.pointerId);sfx("click");}
@@ -2339,11 +2379,13 @@ E.E19={
      if(!dragging)return;
      const m=pointFromEvent(e);
      let t=Math.atan2(m.x-O.x,O.y-m.y)*180/Math.PI;
-     if(t<0)t+=360;theta=Math.round(t);render();
+     if(t<0)t+=360;theta=Math.round(t);ctx.data.visitedDirs.add(theta);render();ctx.check();
    });
    svg.addEventListener("pointerup",()=>{if(dragging){dragging=false;sfx("good");}});
    render();
  },
+ isTaskDone(ctx){return ctx.data.visitedDirs.size>=2;},
+ remaining(ctx){return "还差：点方向按钮或拖箭头，把箭头转到至少两个不同方向，看读法怎么变。";},
  summary:"方位角从正北/正南起算，向东或西偏；东北是北偏东45°。",
  condition:"先分清南北基准，再看向东还是向西、偏多少度。"
 };
@@ -2518,11 +2560,16 @@ E.E21={
    [2,3,4,5,6].forEach(v=>{const b=document.createElement("button");b.className="mini-btn";b.textContent=v+"个";
      b.onclick=()=>{n=v;cur=-1;sfx("click");render();};nBar.appendChild(b);});
    [...modeBar.children].forEach((b,i)=>b.onclick=()=>{mode=i;cur=-1;sfx("click");render();});
-   zone.querySelector("#next23").onclick=()=>{if(cur<total()-1)cur++;sfx("click");render();};
+   ctx.data.countedDone=false;
+   zone.querySelector("#next23").onclick=()=>{
+     if(cur<total()-1){cur++;if(cur>=total()-1){ctx.data.countedDone=true;sfx("good");}else sfx("click");}
+     render();ctx.check();};
    zone.querySelector("#prev23").onclick=()=>{if(cur>-1)cur--;sfx("click");render();};
-   zone.querySelector("#all23").onclick=()=>{cur=total()-1;sfx("click");render();};
+   zone.querySelector("#all23").onclick=()=>{cur=total()-1;ctx.data.countedDone=true;sfx("good");render();ctx.check();};
    render();
  },
+ isTaskDone(ctx){return ctx.data.countedDone===true;},
+ remaining(ctx){return "还差：点'下一个'逐个计数，或点'一次数全'，把角或线段数到最后。";},
  buildReflect(zone,ctx){
    const mt=ctx.guess==="unsure"?"我不确定":["3 个","4 个","6 个"][ctx.guess];
    zone.innerHTML=`<div class="guess-vs">
@@ -2609,12 +2656,15 @@ E.E22={
        else fcard.render({title:"棱锥的规律（n 棱锥）",body:`顶点 <span class="hl">n+1</span> · 棱 <span class="hl">2n</span> · 面 <span class="hl">n+1</span>`,note:"一个底，再加 n 个侧面。"});
      }
      }
+     ctx.data.actedModes=new Set();
      [3,4,5,6,8].forEach(v=>{const b=document.createElement("button");b.className="mini-btn";b.textContent=v;
-       b.onclick=()=>{n=v;acted=true;sfx("click");build();};nBar.appendChild(b);});
-     [...modeBar.children].forEach((b,i)=>b.onclick=()=>{mode=i;acted=true;sfx("click");build();});
+       b.onclick=()=>{n=v;acted=true;ctx.data.actedModes.add(mode);sfx("click");build();ctx.check();};nBar.appendChild(b);});
+     [...modeBar.children].forEach((b,i)=>b.onclick=()=>{mode=i;acted=true;ctx.data.actedModes.add(i);sfx("click");build();ctx.check();});
      build();
    })().catch(()=>{st.textContent="3D 暂时没加载出来，检查网络后刷新试试。";});
  },
+ isTaskDone(ctx){return ctx.data.actedModes.size>=2;},
+ remaining(ctx){const m=[];if(!ctx.data.actedModes.has(0))m.push("在棱柱模式换一个 n");if(!ctx.data.actedModes.has(1))m.push("切到棱锥也换一个 n");return "还差："+m.join("；");},
  buildReflect(zone,ctx){
    const mt=ctx.guess==="unsure"?"我不确定":["n 个","n+2 个","2n 个"][ctx.guess];
    zone.innerHTML=`<div class="guess-vs">

@@ -945,6 +945,8 @@ E.E4={
        if(round===rounds.length-1){st.textContent=`对了！${anchor} 和 ${pick} 背对背、中间隔着整个盒子。三对相对的面你都找齐了。`;nextBtn.style.display="none";}
        else{st.textContent=`对了！${anchor} 和 ${pick} 背对背，这就是一对相对的面。点'再试一对'继续。`;nextBtn.style.display="inline-flex";}
        sfx("good");
+     }else if(pick===anchor){
+       st.textContent=`两颗星都贴在 ${anchor} 这一个面上了。第二颗要贴在它背对的那面，不是贴在同一面。点'摊开重选'再试。`;
      }else{
        st.textContent=`看亮黄色这条边：${anchor} 和 ${pick} 共用这条边、是挨着的，不是背对背。点'摊开重选'再试。`;
      }
@@ -1362,7 +1364,7 @@ E.E12={
  isComplete(ctx){return ctx.data.choice.sel.size>0;},
  collect(ctx){return ctx.data.choice.get()[0];},
  buildLab(zone,ctx){
-   const Ly=270,P={x:300,y:150},Hx=300,QMIN=80,QMAX=520,SNAP=8;
+   const Ly=270,P={x:300,y:150},Hx=300,QMIN=80,QMAX=520,SNAP=4;
    const savedLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
    ctx.data.drops=savedLab&&savedLab.drops?savedLab.drops:[];
    ctx.data.foot=savedLab?!!savedLab.foot:false;
@@ -1398,17 +1400,17 @@ E.E12={
    }
    function drawMarks(){
      marks.innerHTML=ctx.data.drops.map(d=>`<circle cx="${d.q}" cy="${Ly}" r="6" fill="#0891b2"/>`).join("");
-     cards.innerHTML=ctx.data.drops.map((d,i)=>`<div style="background:#ecfeff;border-left:6px solid #0891b2;border-radius:10px;padding:8px 16px;font-weight:800;color:#155e75">第${i+1}个落点 · 长度 ${d.len.toFixed(0)}</div>`).join("")
-       +(ctx.data.foot?`<div style="background:#f0fdf4;border-left:6px solid #16a34a;border-radius:10px;padding:8px 16px;font-weight:800;color:#14532d">垂足 · 长度 ${lenAt(Hx).toFixed(0)}（最短）</div>`:"");
+     cards.innerHTML=ctx.data.drops.map((d,i)=>`<div style="background:#ecfeff;border-left:6px solid #0891b2;border-radius:10px;padding:8px 16px;font-weight:800;color:#155e75">第${i+1}个落点 · 长度 ${d.len.toFixed(1)}</div>`).join("")
+       +(ctx.data.foot?`<div style="background:#f0fdf4;border-left:6px solid #16a34a;border-radius:10px;padding:8px 16px;font-weight:800;color:#14532d">垂足 · 长度 ${lenAt(Hx).toFixed(1)}（最短）</div>`:"");
    }
    function draw(){
      const atH=Math.abs(q-Hx)<SNAP,len=lenAt(q);
      seg.setAttribute("x2",q);seg.setAttribute("y2",Ly);
-     lenText.setAttribute("x",q);lenText.textContent=len.toFixed(0);
+     lenText.setAttribute("x",q);lenText.textContent=len.toFixed(1);
      ra.style.display=atH?"block":"none";
      drawMarks();goalZone.innerHTML=goalHtml();
      if(atH)st.textContent="对准垂足啦，松手就锁定：连线和直线成直角，这是最短的。";
-     else st.textContent=`这个落点长度 ${len.toFixed(0)}。松手记下来，再拖到别处比一比。`;
+     else st.textContent=`这个落点长度 ${len.toFixed(1)}。松手记下来，再拖到别处比一比。`;
    }
    svgHandle(svg,{x:q,y:Ly},pt=>{
      q=Math.max(QMIN,Math.min(QMAX,pt.x));pt.x=q;pt.y=Ly;draw();
@@ -1475,11 +1477,11 @@ E.E13={
    const K=40; // 40 像素算 1 个单位，整条 AB 400 像素 = 10
    const handle=svgHandle(svg,{x:300,y:160},pt=>{pt.y=160;pt.x=Math.max(A.x,Math.min(B.x,pt.x));C={x:pt.x,y:160};draw();},"#db2777");
    function draw(){
-     const ac=Math.round((C.x-A.x)/K),cb=10-ac;
-     labAC.setAttribute("x",(A.x+C.x)/2);labAC.textContent="AC="+ac;
-     labCB.setAttribute("x",(C.x+B.x)/2);labCB.textContent="CB="+cb;
-     if(Math.abs(C.x-300)<2)st.textContent=`C 正好在中点：AC=CB=5，都是 AB 的一半（AB=10）。`;
-     else st.textContent=`AC=${ac}，CB=${cb}，加起来 AC+CB=10，正好等于 AB，怎么拖都不变。`;
+     const ac=(C.x-A.x)/K,cb=10-ac;
+     labAC.setAttribute("x",(A.x+C.x)/2);labAC.textContent="AC="+ac.toFixed(1);
+     labCB.setAttribute("x",(C.x+B.x)/2);labCB.textContent="CB="+cb.toFixed(1);
+     if(Math.abs(C.x-300)<2)st.textContent=`C 正好在中点：AC=CB=5.0，都是 AB 的一半（AB=10）。`;
+     else st.textContent=`AC=${ac.toFixed(1)}，CB=${cb.toFixed(1)}，加起来正好是 AB=10，怎么拖都不变。只有中点两段才相等。`;
    }
    [...tabs.children][0].onclick=()=>{sfx("click");toast("直接拖那个圆点就行。");};
    [...tabs.children][1].onclick=()=>{handle.set(300,160);C={x:300,y:160};sfx("click");draw();};
@@ -1583,7 +1585,10 @@ E.E25={
   const K=34,ORIG=190,Y=160,LO=-5,HI=11;
   const TARGETS=[-3,9],COL="#0891b2",GREEN="#16a34a",PURPLE="#7c3aed",ORANGE="#ea580c";
   const sx=x=>ORIG+K*x,clamp=v=>Math.max(LO,Math.min(HI,v));
-  const savedLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
+  const rawLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
+  // 新版结构以数字 step 为标志；旧版是 {side,seen}，结构不兼容，重置回新版第一步
+  const savedLab=rawLab&&typeof rawLab.step==="number"?rawLab:null;
+  ctx.data.legacyReset=!!(rawLab&&!savedLab);
   ctx.data.step=savedLab?savedLab.step:0;
   ctx.data.found=savedLab?savedLab.found:[];
   ctx.data.cur=savedLab?savedLab.cur:5;
@@ -1622,7 +1627,8 @@ E.E25={
    return `<line x1="${sx(LO)}" y1="${Y}" x2="${sx(HI)}" y2="${Y}" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
     <path d="M${sx(HI)-8} ${Y-7} L${sx(HI)} ${Y} L${sx(HI)-8} ${Y+7}" fill="#94a3b8"/>`;
   }
-  function nearestTarget(x){return TARGETS.find(t=>Math.abs(x-t)<1);}
+  const SNAP_TOL=.6;
+  function nearestTarget(x){return TARGETS.find(t=>Math.abs(x-t)<=SNAP_TOL);}
   function render(){
    const step=ctx.data.step;
    let html=`<div class="scene">${stepBar()}<svg viewBox="0 0 600 250" id="svg25" style="width:100%;max-width:760"></svg>`;
@@ -1637,36 +1643,36 @@ E.E25={
    if(step===0||step===1){
     // 可拖把手
     const bX=sx(3);
-    s+=`<line x1="${bX}" y1="${Y+22}" x2="${sx(ctx.data.cur)}" y2="${Y+22}" stroke="${COL}" stroke-width="2" stroke-dasharray="4 4"/>`;
+    s+=`<line id="dash25" x1="${bX}" y1="${Y+22}" x2="${sx(ctx.data.cur)}" y2="${Y+22}" stroke="${COL}" stroke-width="2" stroke-dasharray="4 4"/>`;
     svg.innerHTML=s;
     const st=zone.querySelector("#s25");
-    const handle=svgHandle(svg,{x:sx(ctx.data.cur),y:Y},pt=>{
-      let math=clamp((pt.x-ORIG)/K);
+    svgHandle(svg,{x:sx(ctx.data.cur),y:Y},pt=>{
+      const raw=clamp((pt.x-ORIG)/K),hit=nearestTarget(raw);
+      const isSnap=hit!==undefined,math=isSnap?hit:raw;
       ctx.data.cur=math;pt.x=sx(math);pt.y=Y;
+      const dash=svg.querySelector("#dash25");if(dash)dash.setAttribute("x2",sx(math));
+      const hh=svg.querySelector(".svg-handle");if(hh)hh.setAttribute("fill",isSnap?GREEN:COL);
       const d=Math.abs(math-3);
-      st.textContent=`现在 D 离 B 是 ${d.toFixed(1)}。松手看看对不对。`;
+      if(isSnap)st.innerHTML=`吸住啦：D 离 B 正好 <b style="color:${GREEN}">6.0</b>，松手就记下这个点。`;
+      else st.textContent=`现在 D 离 B 是 ${d.toFixed(1)}。靠近整数刻度会自动吸住，没吸住松手不算数。`;
     },COL,()=>{
-      const x=ctx.data.cur,d=Math.abs(x-3),t=nearestTarget(x);
+      const x=ctx.data.cur,t=TARGETS.find(tg=>Math.abs(x-tg)<1e-9);
+      if(t===undefined){
+       const d=Math.abs(x-3),gap=Math.abs(6-d);
+       st.textContent=`没吸住，现在离 B 是 ${d.toFixed(1)}，还差 ${gap.toFixed(1)}。再拖拖，争取正好吸到 6.0。`;sfx("click");return;
+      }
       if(step===0){
-       if(t!==undefined){
-        ctx.data.found=[t];ctx.data.cur=t===-3?6:0;ctx.data.step=1;sfx("good");persist();render();
-       }else{
-        const gap=Math.abs(6-d);
-        st.textContent=`现在离 B 是 ${d.toFixed(1)}，还差 ${gap.toFixed(1)}。再拖拖，争取让它正好是 6。`;sfx("click");
-       }
+       ctx.data.found=[t];ctx.data.cur=t===-3?6:0;ctx.data.step=1;sfx("good");persist();render();
       }else{
-       if(t!==undefined&&t!==ctx.data.found[0]){
+       if(t!==ctx.data.found[0]){
         ctx.data.found=[...ctx.data.found,t].sort((a,b)=>a-b);ctx.data.step=2;ctx.data.q2=0;sfx("good");persist();render();
-       }else if(t===ctx.data.found[0]){
-        st.textContent=`这个点（${t}）已经找到啦，它在另一边，试试 B 的另一侧。`;sfx("click");
        }else{
-        const gap=Math.abs(6-d);
-        st.textContent=`现在离 B 是 ${d.toFixed(1)}，还差 ${gap.toFixed(1)}。再拖拖，争取正好是 6。`;sfx("click");
+        st.textContent=`这个点（${t}）已经找到啦，试试 B 的另一侧。`;sfx("click");
        }
       }
     });
     if(step===0)st.textContent=`按住圆点左右拖，让 D 离 B 恰好是 6。现在离 B 是 ${Math.abs(ctx.data.cur-3).toFixed(1)}。`;
-    else st.textContent=`D${ctx.data.found[0]===undefined?"":1}（坐标 ${ctx.data.found[0]}）找到了。另一边也能离 B 恰好 6 吗？拖拖看。`;
+    else st.textContent=`D1（坐标 ${ctx.data.found[0]}）找到了。另一边也能离 B 恰好 6 吗？拖拖看。`;
    }else if(step===2){
     svg.innerHTML=s;
     const card=zone.querySelector("#card25");
@@ -1717,6 +1723,7 @@ E.E25={
    persist();ctx.check();
   }
   render();
+  if(ctx.data.legacyReset){toast("这节课更新了，原来的记录是旧版。咱们从第一步重新动手找。");}
  },
  isTaskDone(ctx){return ctx.data.finished===true;},
  remaining(ctx){
@@ -1817,15 +1824,17 @@ E.E27={
   const savedLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
   ctx.data.side=savedLab?savedLab.side:0;
   ctx.data.seen=new Set(savedLab&&savedLab.seen?savedLab.seen:[ctx.data.side]);
+  ctx.data.explained=savedLab&&savedLab.explained?true:false;
   function persist(){
-   state.progress[ctx.lv.slug]=Object.assign(state.progress[ctx.lv.slug]||{guess:ctx.guess},{lab:{side:ctx.data.side,seen:[...ctx.data.seen]}});save();
+   state.progress[ctx.lv.slug]=Object.assign(state.progress[ctx.lv.slug]||{guess:ctx.guess},{lab:{side:ctx.data.side,seen:[...ctx.data.seen],explained:ctx.data.explained}});save();
   }
   zone.innerHTML=`<div class="scene">
    <div class="quick-views" id="tabs27"><button class="mini-btn">E 在 B 左边</button><button class="mini-btn">E 在 B 右边</button></div>
    <svg viewBox="0 0 600 270" id="svg27" style="width:100%;max-width:760"></svg>
    <div class="eq-card" id="eq27" style="border-color:${COL}"></div>
+   <div id="ask27"></div>
    <div class="status-bar" id="s27" style="max-width:760"></div></div>`;
-  const svg=zone.querySelector("#svg27"),eq=zone.querySelector("#eq27"),st=zone.querySelector("#s27"),tabs=zone.querySelector("#tabs27");
+  const svg=zone.querySelector("#svg27"),eq=zone.querySelector("#eq27"),st=zone.querySelector("#s27"),tabs=zone.querySelector("#tabs27"),ask=zone.querySelector("#ask27");
   function draw(){
    const eX=ctx.data.side===0?-5:7,ea=Math.abs(eX),eXs=sx(eX),bX=sx(1);
    let s=`<line x1="25" y1="${Y}" x2="490" y2="${Y}" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
@@ -1841,18 +1850,53 @@ E.E27={
    eq.style.borderColor=COL;
    eq.innerHTML=`<div class="eq-title" style="color:${COL}">写成绝对值方程（设 E 的坐标是 x）</div>
     <div class="eq-main">|x − 1| = 6</div>
-    <div class="eq-branch">x − 1 = −6 → x = −5（E 在左，EA=5）</div>
-    <div class="eq-branch">x − 1 = 6 → x = 7（E 在右，EA=7）</div>`;
-   st.textContent=`E 在 B ${ctx.data.side===0?"左":"右"}边，坐标 ${eX}，E 到 A 是 ${ea}。两边都看一遍就做完了。`;
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:10px">
+      <div style="flex:1;min-width:225px;border:2px solid #0891b2;border-radius:12px;overflow:hidden">
+        <div style="background:#0891b2;color:#fff;font-weight:800;padding:7px;text-align:center;font-size:15px">点 E 在哪里 · 坐标 x（方程的解）</div>
+        <div style="padding:10px;text-align:center;line-height:2">
+          <div style="font-size:18px;font-weight:800;color:#0e7490">左边 x = −5</div>
+          <div style="font-size:18px;font-weight:800;color:#0e7490">右边 x = 7</div></div></div>
+      <div style="flex:1;min-width:225px;border:2px solid #ea580c;border-radius:12px;overflow:hidden">
+        <div style="background:#ea580c;color:#fff;font-weight:800;padding:7px;text-align:center;font-size:15px">E 离 A 多远 · 距离 EA（坐标取绝对值）</div>
+        <div style="padding:10px;text-align:center;line-height:2">
+          <div style="font-size:18px;font-weight:800;color:#c2410c">左边 EA = |−5| = 5</div>
+          <div style="font-size:18px;font-weight:800;color:#c2410c">右边 EA = |7| = 7</div></div></div>
+    </div>`;
+   st.textContent=`E 在 B ${ctx.data.side===0?"左":"右"}边，坐标 ${eX}，E 到 A 是 ${ea}。两边都看一遍，再想清楚坐标和距离的区别。`;
    [...tabs.children].forEach((b,i)=>{b.style.background=i===ctx.data.side?COL:"#fff";b.style.color=i===ctx.data.side?"#fff":COL;b.style.borderColor=COL;});
   }
-  [...tabs.children].forEach((b,i)=>b.onclick=()=>{ctx.data.side=i;ctx.data.seen.add(i);sfx("click");draw();persist();ctx.check();});
-  draw();persist();ctx.check();
+  function renderAsk(){
+   if(ctx.data.seen.size<2){ask.innerHTML="";return;}
+   if(ctx.data.explained){
+    ask.innerHTML=`<div class="eq-card" style="border-color:#16a34a;border-left-color:#16a34a;margin-top:14px">
+      <div class="eq-title" style="color:#16a34a">想清楚了</div>
+      <p style="font-size:16px;line-height:1.9;color:#374151;margin:6px 0 0">方程 |x−1|=6 解出来的是<b style="color:#0891b2">坐标 x</b>：−5 和 7。题目问的<b style="color:#ea580c">距离 EA</b>，是坐标再取绝对值：|−5|=5、|7|=7。坐标能是负的，距离不会负，这俩不是一回事。</p></div>`;
+    return;
+   }
+   ask.innerHTML=`<div class="eq-card" style="border-color:#7c3aed;border-left-color:#7c3aed;margin-top:14px">
+     <div class="eq-title" style="color:#7c3aed">再想一步</div>
+     <p style="font-size:17px;font-weight:700;color:#1f2937;margin:4px 0 10px">左边那个 E，坐标是 −5，可它到 A 的距离为什么是 5，不是 −5？</p>
+     <div id="askChoices27"></div>
+     <div id="askFb27" style="margin-top:8px;font-size:15px;font-weight:700;line-height:1.7"></div></div>`;
+   const items=["距离是绝对值，不会是负数","坐标 −5 写错了，应该是 5","坐标和距离本来就是一回事"];
+   const ac=zone.querySelector("#askChoices27"),fb=zone.querySelector("#askFb27");
+   ac.innerHTML=items.map((t,i)=>`<button class="mini-btn" data-i="${i}" style="margin:4px">${t}</button>`).join("");
+   ac.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    if(+b.dataset.i===0){ctx.data.explained=true;sfx("good");persist();renderAsk();ctx.check();}
+    else{sfx("soft");fb.style.color="#dc2626";fb.textContent="再想想：坐标 −5 说的是点在 A 左边 5 格；距离数的是隔了几格，不会数出负的。";}
+   });
+  }
+  [...tabs.children].forEach((b,i)=>b.onclick=()=>{ctx.data.side=i;ctx.data.seen.add(i);sfx("click");draw();persist();renderAsk();ctx.check();});
+  draw();persist();renderAsk();ctx.check();
  },
- isTaskDone(ctx){return ctx.data.seen.size>=2;},
- remaining(ctx){const m=[];if(!ctx.data.seen.has(0))m.push("看 E 在 B 左边");if(!ctx.data.seen.has(1))m.push("看 E 在 B 右边");return "还差："+m.join("；");},
- summary:"中点和倍数先定四点，E 到 B 距离固定、左右没定：在左 EA=5，在右 EA=7，就是绝对值方程两个解。",
- condition:"E 只说在直线上、没说在 B 哪一侧，左右都要算。"
+ isTaskDone(ctx){return ctx.data.seen.size>=2&&ctx.data.explained;},
+ remaining(ctx){const m=[];
+  if(!ctx.data.seen.has(0))m.push("看 E 在 B 左边");
+  if(!ctx.data.seen.has(1))m.push("看 E 在 B 右边");
+  if(ctx.data.seen.size>=2&&!ctx.data.explained)m.push("想清楚坐标和距离为什么不一样");
+  return "还差："+m.join("；");},
+ summary:"方程 |x−1|=6 的两个解是坐标 x=−5 和 x=7；题目问的距离 EA 再取绝对值，是 5 和 7。坐标能负，距离不会负。",
+ condition:"E 只说在直线上、没说在 B 哪一侧，左右都要算；方程解的是坐标，距离要再取绝对值。"
 };
 
 /* ---------- E15 度分秒 ---------- */
@@ -1913,18 +1957,20 @@ E.E15={
        // 每 10 格标数字
        for(let i=0;i<60;i+=10){const mid=pAt((r.ro+r.ri)/2,i*6);
          s+=`<text x="${mid.x}" y="${mid.y+5}" text-anchor="middle" font-size="16" font-weight="800" fill="${r.color}">${i}</text>`;}
-       // 选中格
+       // 选中格（60° 是边界，外圈没有第 60 格，不画高亮）
        const v=sel[r.key];
-       s+=sector(r.ro,r.ri,v*6-3,v*6+3,r.color);
+       if(!(r.key==="d"&&v>=60))s+=sector(r.ro,r.ri,v*6-3,v*6+3,r.color);
      });
      // 中心读数
+     const readout=sel.d>=60?"60°00′00″":`${sel.d}° ${sel.m}′ ${sel.s}″`;
      s+=`<circle cx="${O.x}" cy="${O.y}" r="94" fill="#fff"/>
-       <text x="${O.x}" y="${O.y-20}" text-anchor="middle" font-size="15" font-weight="700" fill="#6b7280">现在读数</text>
-       <text x="${O.x}" y="${O.y+16}" text-anchor="middle" font-size="26" font-weight="900" fill="#1f2937">${sel.d}° ${sel.m}′ ${sel.s}″</text>`;
+       <text x="${O.x}" y="${O.y-20}" text-anchor="middle" font-size="15px" font-weight="700" fill="#6b7280">现在读数</text>
+       <text x="${O.x}" y="${O.y+16}" text-anchor="middle" font-size="26" font-weight="900" fill="#1f2937">${readout}</text>`;
      svg.innerHTML=s;
      goalZone.innerHTML=goalHtml();
      const g=ctx.data.goal;
-     if(!g.to3030)st.textContent=`外圈点 30（度），中圈点 30（分），秒留 0。现在是 ${sel.d}°${sel.m}′${sel.s}″。`;
+     if(sel.d>=60)st.textContent=`到边界啦：60°00′00″ 就是整整 1°，跟秒满 60 进分、分满 60 进度是同一回事。`;
+     else if(!g.to3030)st.textContent=`外圈点 30（度），中圈点 30（分），秒留 0。现在是 ${sel.d}°${sel.m}′${sel.s}″。`;
      else if(!g.carry)st.textContent=`对了。现在点最里面那圈的 59，再按 +1秒，盯住中圈，看分从 30 进到 31。`;
      else st.textContent=`看到了吧：秒满 60 归 0，分进 1。度分秒都是 60 进制，这是角度不是时间。`;
      ctx.check();
@@ -1941,7 +1987,7 @@ E.E15={
    let dragRing=null;
    svg.addEventListener("pointerdown",e=>{
      const p=pickAt(e);if(!p)return;
-     dragRing=p.ring;svg.setPointerCapture(e.pointerId);
+     dragRing=p.ring;try{svg.setPointerCapture(e.pointerId);}catch(err){}
      const k=p.ring.key,sel=ctx.data.sel;
      if(k==="d"){sel.d=p.idx;sel.m=0;sel.s=0;}
      else if(k==="m"){sel.m=p.idx;sel.s=0;}
@@ -1956,7 +2002,7 @@ E.E15={
    function bump(delta){
      const z=ctx.data.sel;
      let total=z.d*3600+z.m*60+z.s+delta;
-     total=Math.max(0,Math.min(59*3600+59*60+59,total));
+     total=Math.max(0,Math.min(60*3600,total));
      z.d=Math.floor(total/3600);z.m=Math.floor(total%3600/60);z.s=total%60;
    }
    zone.querySelector("#plusSec").onclick=()=>{
@@ -2226,7 +2272,7 @@ E.E20={
      const a=(90-angle)*Math.PI/180;
      return`<line x1="${O.x}" y1="${O.y}" x2="${O.x+len*Math.cos(a)}" y2="${O.y-len*Math.sin(a)}" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`;
    }
-   let dragging=false,totalMin=180,lastAng=0;
+   let dragging=false,accMin=180,lastAng=0;
    ctx.data.cur={h:3,m:0};
    function render(){
      const {h,m}=normHM();
@@ -2258,24 +2304,29 @@ E.E20={
      const rect=svg.getBoundingClientRect();
      return {x:(e.clientX-rect.left)/rect.width*600,y:(e.clientY-rect.top)/rect.height*380};
    }
+   // 指针当前角度：12 点方向为 0，顺时针 0–360
+   function pointerAngle(e){
+     const p=pointFromEvent(e);
+     const geo=Math.atan2(O.y-p.y,p.x-O.x)*180/Math.PI;
+     return ((90-geo)%360+360)%360;
+   }
    svg.addEventListener("pointerdown",e=>{
      if(e.target.id==="dragM"){
-       dragging=true;svg.setPointerCapture(e.pointerId);sfx("click");
+       dragging=true;try{svg.setPointerCapture(e.pointerId);}catch(err){}sfx("click");
        const {h,m}=normHM();
-       totalMin=h*60+m;lastAng=m*6;
+       accMin=h*60+m;lastAng=pointerAngle(e);
      }
    });
    svg.addEventListener("pointermove",e=>{
      if(!dragging)return;
-     const p=pointFromEvent(e);
-     const geo=Math.atan2(O.y-p.y,p.x-O.x)*180/Math.PI;
-     let curAng=90-geo;curAng=((curAng%360)+360)%360;
+     const curAng=pointerAngle(e);
      let dAng=curAng-lastAng;
-     if(dAng>180)dAng-=360;else if(dAng<-180)dAng+=360;
-     if(Math.abs(dAng)>=3){totalMin+=Math.round(dAng/6);lastAng=curAng;}
-     let h2=Math.floor(totalMin/60);h2=((h2%12)+12)%12;
-     const m2=((totalMin%60)+60)%60;
-     hIn.value=h2;mIn.value=m2;render();
+     // 规整到 (-180,180]，处理跨过 0/360
+     dAng=((dAng+180)%360+360)%360-180;
+     // 浮点累计真实角度，中间不取整；到显示时才换算整分
+     accMin+=dAng/6;lastAng=curAng;
+     const total=((Math.round(accMin)%720)+720)%720;
+     hIn.value=Math.floor(total/60);mIn.value=total%60;render();
    });
    svg.addEventListener("pointerup",()=>{if(dragging){dragging=false;sfx("good");}});
    hIn.addEventListener("change",()=>{const {h,m}=normHM();hIn.value=h;mIn.value=m;render();});

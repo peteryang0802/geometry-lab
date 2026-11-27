@@ -108,6 +108,11 @@ h1,h2,h3{line-height:1.3;margin:0 0 14px;}
 .cand-card.sel .cand-label{color:var(--accent-ink,var(--t1-ink));}
 .btns{display:flex;gap:16px;flex-wrap:wrap;margin-top:22px;}
 .hidden{display:none !important;}
+#guessBar{display:none;align-items:center;justify-content:space-between;gap:14px;font-size:18px;font-weight:700;color:var(--accent-ink,var(--ink));}
+#guessBar .guess-bar-edit{flex:0 0 auto;background:#fff;border:2px solid var(--accent,var(--t1));color:var(--accent,var(--t1));border-radius:10px;padding:6px 14px;font-size:16px;font-weight:700;cursor:pointer;}
+#guessPanel.guess-done{padding:16px 22px;margin-bottom:14px;}
+#guessPanel.guess-done h3,#guessPanel.guess-done #guessZone,#guessPanel.guess-done .btns{display:none;}
+#guessPanel.guess-done #guessBar{display:flex;cursor:pointer;}
 
 /* ---- 3D 场景 ---- */
 .scene{display:flex;flex-direction:column;align-items:center;width:100%;}
@@ -346,7 +351,8 @@ function openExp(id,opts){
   </div>
   <div class="phase-track">${phases}</div>
   <div class="panel" id="guessPanel"><h3>① 想一想</h3><div id="guessZone"></div>
-    <div class="btns"><button class="btn btn-primary" id="submitGuess">想好了，动手做</button></div></div>
+    <div class="btns"><button class="btn btn-primary" id="submitGuess">想好了，动手做</button></div>
+    <div id="guessBar"><span id="guessBarText"></span><span class="guess-bar-edit">改猜想 ✎</span></div></div>
   <div class="panel hidden" id="labPanel">
     <h3>② 动手做</h3>
     <div class="task-banner" id="taskBanner"></div>
@@ -364,26 +370,40 @@ function openExp(id,opts){
  setPhase(0);
  const ctx=makeCtx(lv,tp);
  mod.buildGuess($("#guessZone"),ctx);
+ let entered=false;
+ const goLab=()=>{entered=true;enterLab(lv,tp,ctx,mod);};
  const saved=state.progress[lv.slug];
  if(saved&&saved.guess!==undefined&&saved.guess!==null){
    ctx.guess=saved.guess;
    restoreGuessUI($("#guessZone"),saved.guess,mod);
    const sb=$("#submitGuess");sb.disabled=true;sb.textContent="想好了，继续做";
-   enterLab(lv,tp,ctx,mod);
+   goLab();
  }
  else if(opts&&opts.autoPlay&&typeof mod.quickStart==="function"){
    ctx.guess=mod.quickStart();
    state.progress[lv.slug]=Object.assign({},state.progress[lv.slug],{guess:ctx.guess});save();
    const sb=$("#submitGuess");sb.disabled=true;sb.textContent="想好了，继续做";
-   enterLab(lv,tp,ctx,mod);
+   goLab();
    requestAnimationFrame(()=>$("#labPanel").scrollIntoView({block:"start"}));
  }
+ const refreshGuessBar=()=>{
+   $("#guessBarText").textContent="我猜："+guessText(mod,ctx,$("#guessZone"));
+ };
  $("#submitGuess").onclick=()=>{
    if(!mod.isComplete(ctx)){toast(mod.missMsg||"还有没选好的地方，先补齐哦。");return;}
    ctx.guess=mod.collect(ctx);
    state.progress[lv.slug]=Object.assign({},state.progress[lv.slug],{guess:ctx.guess});save();
-   const sb=$("#submitGuess");sb.disabled=true;sb.textContent="想好了，继续做";
-   enterLab(lv,tp,ctx,mod);
+   const sb=$("#submitGuess");
+   if(entered){
+     // 只是订正猜想，实验进度不动
+     refreshGuessBar();
+     $("#guessPanel").classList.add("guess-done");
+     sb.disabled=true;sb.textContent="想好了，继续做";
+     toast("猜想改好啦，接着动手做。");
+   }else{
+     sb.disabled=true;sb.textContent="想好了，继续做";
+     goLab();
+   }
  };
 }
 function makeCtx(lv,tp){return {lv,tp,data:{},guess:null,check(){}};}
@@ -412,11 +432,25 @@ function restoreGuessUI(zone,guess,mod){
  const b=zone.querySelector('.choice[data-v="'+guess+'"]');
  if(b)b.click();
 }
+function guessText(mod,ctx,zone){
+ if(typeof mod.guessLabel==="function")return mod.guessLabel(ctx);
+ const labels=[...zone.querySelectorAll(".choice.sel,.cand-card.sel")].map(e=>(e.querySelector(".cand-label")||e).textContent.trim());
+ return labels.length?labels.join("，"):String(ctx.guess);
+}
 function enterLab(lv,tp,ctx,mod){
  $("#labPanel").classList.remove("hidden");
  setPhase(1);
  $("#taskBanner").textContent="你的任务："+(mod.task||"动手试一试，看看什么变了、什么没变。");
  mod.buildLab($("#labZone"),ctx);
+ // 把猜想收成一行，腾出首屏给实验
+ const gp=$("#guessPanel");
+ $("#guessBarText").textContent="我猜："+guessText(mod,ctx,$("#guessZone"));
+ gp.classList.add("guess-done");
+ $("#guessBar").onclick=()=>{
+   gp.classList.remove("guess-done");
+   const sb=$("#submitGuess");sb.disabled=false;sb.textContent="改好了，继续做";
+   gp.scrollIntoView({block:"start",behavior:"smooth"});
+ };
  const btns=$("#taskBtns");
  const hasJudge=typeof mod.isTaskDone==="function";
  const hintBtn=document.createElement("button");
@@ -752,6 +786,12 @@ E.E2={
  isComplete(ctx){return ctx.data.picked().length>0||ctx.data.unsure();},
  collect(ctx){return {picked:ctx.data.picked(),unsure:ctx.data.unsure()};},
  quickStart(){return {picked:[],unsure:false};},
+ guessLabel(ctx){
+   const g=ctx.guess;
+   if(g&&g.unsure)return"我不确定";
+   if(g&&g.picked&&g.picked.length)return g.picked.map(i=>this.NETS[i].name).join("、");
+   return"还没选好";
+ },
  restoreGuess(zone,g){
    const wrap=zone.querySelector("#nets");
    (g.picked||[]).forEach(i=>{const d=wrap.children[i];
@@ -765,25 +805,32 @@ E.E2={
    const pal={1:"#67e8f9",2:"#86efac",3:"#fcd34d",4:"#fdba74",5:"#f9a8d4",6:"#fda4af"};
    const nets=this.NETS;
    const myPicked=(ctx.guess&&ctx.guess.picked)||[];
-   let cur=myPicked.length?myPicked[0]:0;
+   const savedLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
+   let cur=savedLab&&savedLab.cur!==undefined?savedLab.cur:(myPicked.length?myPicked[0]:0);
+   const initProgress=savedLab&&savedLab.progress!==undefined?savedLab.progress:0;
    zone.innerHTML=`<div class="scene">
      <div id="goalZone2"></div>
-     <div class="quick-views" style="margin-bottom:8px;gap:10px" id="netTabs"></div>
-     <p style="font-weight:800;color:var(--accent-ink);margin:6px 0 4px">正在折：<span id="curName" style="color:var(--accent)">${nets[cur].name}</span> —— 这张纸能不能折成立方体？</p>
-     <div class="stage-3d" id="st5" style="min-height:470px">
+     <div style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-bottom:2px">
+       <p style="font-weight:800;color:var(--accent-ink);margin:0">正在折：<span id="curName" style="color:var(--accent)">${nets[cur].name}</span></p>
+       <div class="quick-views" style="margin:0;gap:10px" id="netTabs"></div></div>
+     <div class="stage-3d" id="st5" style="min-height:220px;padding:4px">
        <div id="fit5" style="transform-style:preserve-3d">
          <div class="cube3" id="cb5" style="width:${S}px;height:${S}px"></div></div></div>
-     <div style="max-width:760px;width:100%;margin:6px 0">
-       <div style="display:flex;justify-content:space-between;font-weight:800;margin-bottom:6px"><span>摊平</span><span>折起</span></div>
-       <input type="range" id="rng5" min="0" max="100" value="0" style="width:100%">
-       <button class="mini-btn" id="replayClash" style="margin-top:10px">重看两面怎么撞上的</button></div>
+     <div style="max-width:760px;width:100%;margin:4px 0">
+       <input type="range" id="rng5" min="0" max="100" value="${initProgress}" style="width:100%">
+       <button class="mini-btn" id="replayClash" style="margin-top:8px">重看两面怎么撞上的</button></div>
      <div class="status-bar" id="foldStatus" style="max-width:760px"></div></div>`;
    const cube=zone.querySelector("#cb5"),st=zone.querySelector("#foldStatus"),rng=zone.querySelector("#rng5");
    const tabs=zone.querySelector("#netTabs"),goalZone=zone.querySelector("#goalZone2");
-   ctx.data.goals={folded:false,clash:false};
+   const tb=$("#taskBanner");tb.style.padding="10px 16px";tb.style.fontSize="18px";tb.style.marginBottom="10px";
+   ctx.data.goals={folded:savedLab?!!savedLab.folded:false,clash:savedLab?!!savedLab.clash:false};
+   function saveLab(){
+     state.progress[ctx.lv.slug]=Object.assign({},state.progress[ctx.lv.slug],
+       {lab:{cur,progress:Math.round(rng.value),folded:ctx.data.goals.folded,clash:ctx.data.goals.clash}});save();
+   }
    function goalHtml(){
      const g=ctx.data.goals;
-     return `<div style="display:flex;gap:18px;justify-content:center;margin-bottom:6px;font-weight:800;font-size:18px">
+     return `<div style="display:flex;gap:18px;justify-content:center;margin-bottom:2px;font-weight:800;font-size:17px">
        <span style="color:${g.folded?"#16a34a":"#9ca3af"}">${g.folded?"☑":"☐"} 完整折成一个盒子</span>
        <span style="color:${g.clash?"#16a34a":"#9ca3af"}">${g.clash?"☑":"☐"} 看到一次撞面</span></div>`;
    }
@@ -793,7 +840,7 @@ E.E2={
      b.textContent=n.name+(myPicked.includes(i)?" · 我选过":"");
      b.onclick=()=>{cur=i;rng.value=0;zone.querySelector("#curName").textContent=n.name;
        [...tabs.children].forEach(x=>x.style.fontWeight=x.dataset.i===String(cur)?"900":"600");
-       applyFit(0);render(0);sfx("click");};
+       applyFit(0);render(0);saveLab();sfx("click");};
      tabs.appendChild(b);
    });
    function render(progress){
@@ -814,6 +861,7 @@ E.E2={
      if(progress>.98&&fold.clash.length===0)ctx.data.goals.folded=true;
      if(fold.clash.length>0)ctx.data.goals.clash=true;
      goalZone.innerHTML=goalHtml();
+     saveLab();
      if(progress<.02){st.textContent="这是一张摊平的纸。抓滑块往右拖，把它折起来。";}
      else if(fold.clash.length){
        st.textContent=`折到这里，面 ${pair.join(" 和 ")} 抢同一个位置、叠在一起了，所以${net.name}折不成。把滑块往左拖，可以倒回去。`;
@@ -852,7 +900,7 @@ E.E2={
    window.addEventListener("mouseup",()=>rd=false);
    cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;
    [...tabs.children].forEach(x=>x.style.fontWeight=x.dataset.i===String(cur)?"900":"600");
-   applyFit(0);render(0);
+   rng.value=initProgress;applyFit(initProgress/100);render(initProgress/100);
    window.addEventListener("resize",()=>applyFit(+rng.value/100));
  },
  isTaskDone(ctx){return ctx.data.goals.folded&&ctx.data.goals.clash;},

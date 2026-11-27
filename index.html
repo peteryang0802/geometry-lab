@@ -218,6 +218,7 @@ const REF_CARDS=[
 function route(){
  const h=location.hash||"#home";
  if(h.startsWith("#exp/")){openExp(parseInt(h.split("/")[1],10));}
+ else if(h.startsWith("#play/")){openExp(parseInt(h.split("/")[1],10),{autoPlay:true});}
  else if(h.startsWith("#ref")){renderRef();}
  else{renderHome();}
  window.scrollTo(0,0);
@@ -251,7 +252,7 @@ function renderHome(){
      </svg>
      <div class="play-status" id="homePlayStatus">按住红色圆点，上下左右拖一拖。</div>
      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:6px">
-       <button class="btn btn-primary" id="goBlock" style="--accent:var(--t1)">去搭积木</button>
+       <button class="btn btn-primary" id="goBlock" style="--accent:var(--t1)">折一折，看能不能合成盒子</button>
        <button class="btn btn-ghost" id="seeAll" style="--accent:var(--ink)">看看全部 20 个实验</button>
      </div></div>
    <div class="home-mini-links">
@@ -259,7 +260,7 @@ function renderHome(){
      <button class="link-btn" id="resetAllBtn">重置所有进度</button>
    </div>${blocks}`;
  initHomePlay();
- $("#goBlock").onclick=()=>goExp(1);
+ $("#goBlock").onclick=()=>{location.hash="#play/1";};
  $("#seeAll").onclick=()=>{const t=document.querySelector(".topic-block");if(t)t.scrollIntoView({behavior:"smooth"});};
  $("#refBtn").onclick=()=>location.hash="#ref";
  $("#resetAllBtn").onclick=confirmReset;
@@ -315,9 +316,16 @@ function applyTheme(tp){
  $("#app").style.setProperty("--soft",`var(--${tp.key}-soft)`);
  $("#app").style.setProperty("--accent-ink",`var(--${tp.key}-ink)`);
 }
-function openExp(id){
+function openExp(id,opts){
  disposeActiveThree();
- const lv=Exp(id),tp=topicOf(id);
+ const lv=Exp(id);
+ if(!lv){
+   $("#app").innerHTML=`<div class="topbar"><button class="icon-btn" onclick="backHome()">←</button><h2>实验 ${id}</h2></div>
+     <div class="panel" style="text-align:center"><p>这个编号的实验已经调整，目录里找不到它了。</p>
+     <div class="btns" style="justify-content:center"><button class="btn btn-primary" onclick="backHome()">返回实验地图</button></div></div>`;
+   return;
+ }
+ const tp=topicOf(id);
  applyTheme(tp);
  const mod=window[lv.impl];
  if(!mod){
@@ -362,6 +370,13 @@ function openExp(id){
    restoreGuessUI($("#guessZone"),saved.guess,mod);
    const sb=$("#submitGuess");sb.disabled=true;sb.textContent="想好了，继续做";
    enterLab(lv,tp,ctx,mod);
+ }
+ else if(opts&&opts.autoPlay&&typeof mod.quickStart==="function"){
+   ctx.guess=mod.quickStart();
+   state.progress[lv.slug]=Object.assign({},state.progress[lv.slug],{guess:ctx.guess});save();
+   const sb=$("#submitGuess");sb.disabled=true;sb.textContent="想好了，继续做";
+   enterLab(lv,tp,ctx,mod);
+   requestAnimationFrame(()=>$("#labPanel").scrollIntoView({block:"start"}));
  }
  $("#submitGuess").onclick=()=>{
    if(!mod.isComplete(ctx)){toast(mod.missMsg||"还有没选好的地方，先补齐哦。");return;}
@@ -554,7 +569,7 @@ const E={};
 
 
 /* ---------- SVG 把手拖动 ---------- */
-function svgHandle(svgEl,pt,onMove,fill){
+function svgHandle(svgEl,pt,onMove,fill,onUp){
  const h=document.createElementNS("http://www.w3.org/2000/svg","circle");
  h.setAttribute("class","svg-handle");
  h.setAttribute("r",13);h.setAttribute("fill",fill||"var(--accent)");h.setAttribute("stroke","#fff");
@@ -564,8 +579,8 @@ function svgHandle(svgEl,pt,onMove,fill){
  const pt0=svgEl.createSVGPoint();
  function toSvg(e){pt0.x=e.clientX;pt0.y=e.clientY;const p=pt0.matrixTransform(svgEl.getScreenCTM().inverse());return {x:p.x,y:p.y};}
  h.addEventListener("mousedown",e=>{e.preventDefault();e.stopPropagation();
-   function mv(ev){const p=toSvg(ev);pt.x=p.x;pt.y=p.y;place();onMove&&onMove(pt);}
-   function up(){window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);}
+   function mv(ev){const p=toSvg(ev);pt.x=p.x;pt.y=p.y;onMove&&onMove(pt);place();}
+   function up(){window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);onUp&&onUp(pt);}
    window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);});
  return {set(x,y){pt.x=x;pt.y=y;place();},pt,remove(){h.remove();}};
 }
@@ -732,6 +747,7 @@ E.E2={
  },
  isComplete(ctx){return ctx.data.picked().length>0||ctx.data.unsure();},
  collect(ctx){return {picked:ctx.data.picked(),unsure:ctx.data.unsure()};},
+ quickStart(){return {picked:[],unsure:false};},
  restoreGuess(zone,g){
    const wrap=zone.querySelector("#nets");
    (g.picked||[]).forEach(i=>{const d=wrap.children[i];
@@ -942,7 +958,11 @@ E.E4={
      sideMode=!sideMode;
      if(sideMode){vrx=-8;vry=-92;cube.style.transform=`rotateX(${vrx}deg) rotateY(${vry}deg)`;}
      render();
-     if(sideMode)st.textContent="盒子变透明了。从侧面看，两颗星各在一边、中间隔着整个盒子，这就是背对背。";
+     if(sideMode){
+       if(pick===opp[anchor])st.textContent="盒子变透明了。从侧面看，两颗星各在一边、中间隔着整个盒子，这才是背对背。";
+       else if(pick)st.textContent="盒子变透明了。从侧面看，两颗星在相邻的面上、共用一条边，不是背对背。";
+       else st.textContent="盒子变透明了。还没贴蓝色星，先点'摊开重选'贴一个。";
+     }
      else st.textContent="已恢复原样。";
      saveLab();sfx("click");
    };
@@ -1342,9 +1362,9 @@ E.E12={
  isComplete(ctx){return ctx.data.choice.sel.size>0;},
  collect(ctx){return ctx.data.choice.get()[0];},
  buildLab(zone,ctx){
-   const Ly=270,P={x:300,y:150},Hx=300;
+   const Ly=270,P={x:300,y:150},Hx=300,QMIN=80,QMAX=520,SNAP=8;
    const savedLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
-   ctx.data.tries=new Set(savedLab&&savedLab.tries?savedLab.tries:[]);
+   ctx.data.drops=savedLab&&savedLab.drops?savedLab.drops:[];
    ctx.data.foot=savedLab?!!savedLab.foot:false;
    let q=savedLab&&savedLab.q!==undefined?savedLab.q:420;
    zone.innerHTML=`<div class="scene">
@@ -1352,53 +1372,69 @@ E.E12={
      <svg viewBox="0 0 600 340" id="svg14" style="width:100%;max-width:780">
        <line x1="${Hx}" y1="${P.y}" x2="${Hx}" y2="${Ly}" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 6" opacity=".4"/>
        <line x1="70" y1="${Ly}" x2="530" y2="${Ly}" stroke="var(--accent-ink)" stroke-width="5" stroke-linecap="round"/>
+       <g id="marks14"></g>
        <line id="seg14" x1="${P.x}" y1="${P.y}" stroke="var(--accent)" stroke-width="4"/>
        <path id="ra14" d="M${Hx} ${Ly-18} L${Hx+18} ${Ly-18} L${Hx+18} ${Ly}" fill="none" stroke="#db2777" stroke-width="2.5" style="display:none"/>
        <circle cx="${P.x}" cy="${P.y}" r="9" fill="var(--accent)"/>
        <text x="${P.x-18}" y="${P.y+6}" font-size="19" font-weight="800" fill="var(--accent-ink)">P</text>
        <text id="len14" y="${Ly-12}" font-size="20" font-weight="900" fill="#9d174d" text-anchor="middle"></text>
      </svg>
-     <p style="font-weight:800;color:var(--accent-ink);margin-top:8px">按住直线上的圆点，左右拖动</p>
+     <p style="font-weight:800;color:var(--accent-ink);margin-top:8px">按住圆点左右拖，松手记下这个落点</p>
+     <div id="dropCards12" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px"></div>
      <div class="status-bar" id="s14" style="max-width:740"></div></div>`;
    const svg=zone.querySelector("#svg14"),st=zone.querySelector("#s14"),
-     seg=zone.querySelector("#seg14"),lenText=zone.querySelector("#len14"),ra=zone.querySelector("#ra14"),goalZone=zone.querySelector("#goalZone12");
+     seg=zone.querySelector("#seg14"),lenText=zone.querySelector("#len14"),ra=zone.querySelector("#ra14"),
+     goalZone=zone.querySelector("#goalZone12"),marks=zone.querySelector("#marks14"),cards=zone.querySelector("#dropCards12");
+   const lenAt=x=>Math.hypot(x-P.x,Ly-P.y);
    function persist(){
      state.progress[ctx.lv.slug]=state.progress[ctx.lv.slug]||{guess:ctx.guess};
-     state.progress[ctx.lv.slug].lab={q,tries:[...ctx.data.tries],foot:ctx.data.foot};save();
+     state.progress[ctx.lv.slug].lab={q,drops:ctx.data.drops,foot:ctx.data.foot};save();
    }
    function goalHtml(){
-     const n=ctx.data.tries.size,f=ctx.data.foot;
+     const n=ctx.data.drops.length,f=ctx.data.foot;
      return `<div style="display:flex;gap:18px;justify-content:center;margin-bottom:6px;font-weight:800;font-size:18px">
-       <span style="color:${n>=2?"#16a34a":"#9ca3af"}">${n>=2?"☑":"☐"} 试两个落点 ${Math.min(n,2)}/2</span>
-       <span style="color:${f?"#16a34a":"#9ca3af"}">${f?"☑":"☐"} 找到垂足（成直角）</span></div>`;
+       <span style="color:${n>=2?"#16a34a":"#9ca3af"}">${n>=2?"☑":"☐"} 松手记两个落点 ${Math.min(n,2)}/2</span>
+       <span style="color:${f?"#16a34a":"#9ca3af"}">${f?"☑":"☐"} 锁定垂足（成直角）</span></div>`;
+   }
+   function drawMarks(){
+     marks.innerHTML=ctx.data.drops.map(d=>`<circle cx="${d.q}" cy="${Ly}" r="6" fill="#0891b2"/>`).join("");
+     cards.innerHTML=ctx.data.drops.map((d,i)=>`<div style="background:#ecfeff;border-left:6px solid #0891b2;border-radius:10px;padding:8px 16px;font-weight:800;color:#155e75">第${i+1}个落点 · 长度 ${d.len.toFixed(0)}</div>`).join("")
+       +(ctx.data.foot?`<div style="background:#f0fdf4;border-left:6px solid #16a34a;border-radius:10px;padding:8px 16px;font-weight:800;color:#14532d">垂足 · 长度 ${lenAt(Hx).toFixed(0)}（最短）</div>`:"");
    }
    function draw(){
-     const len=Math.hypot(q-P.x,Ly-P.y),atH=Math.abs(q-Hx)<4;
-     if(atH)ctx.data.foot=true;
-     else ctx.data.tries.add(Math.round(q/25));
+     const atH=Math.abs(q-Hx)<SNAP,len=lenAt(q);
      seg.setAttribute("x2",q);seg.setAttribute("y2",Ly);
      lenText.setAttribute("x",q);lenText.textContent=len.toFixed(0);
      ra.style.display=atH?"block":"none";
-     goalZone.innerHTML=goalHtml();
-     if(atH)st.textContent=`落点在垂足，连线和直线成直角，长度 ${len.toFixed(0)}，这是最短的。`;
-     else st.textContent=`落点在这儿，长度 ${len.toFixed(0)}。左右拖一拖，看能不能找到更短的。`;
-     persist();ctx.check();
+     drawMarks();goalZone.innerHTML=goalHtml();
+     if(atH)st.textContent="对准垂足啦，松手就锁定：连线和直线成直角，这是最短的。";
+     else st.textContent=`这个落点长度 ${len.toFixed(0)}。松手记下来，再拖到别处比一比。`;
    }
-   svgHandle(svg,{x:q,y:Ly},pt=>{q=Math.max(80,Math.min(520,pt.x));draw();},"#db2777");
+   svgHandle(svg,{x:q,y:Ly},pt=>{
+     q=Math.max(QMIN,Math.min(QMAX,pt.x));pt.x=q;pt.y=Ly;draw();
+   },"#db2777",()=>{
+     if(Math.abs(q-Hx)<SNAP){q=Hx;ctx.data.foot=true;sfx("good");}
+     else{
+       const existed=ctx.data.drops.some(d=>Math.abs(d.q-q)<12);
+       if(!existed){ctx.data.drops.push({q:Math.round(q),len:lenAt(q)});sfx("good");}
+       else sfx("click");
+     }
+     persist();draw();ctx.check();
+   });
    draw();
  },
  buildReflect(zone,ctx){
    const mt=ctx.guess==="unsure"?"我不确定":["都一样","成直角的点","屏幕最近","我不确定"][ctx.guess];
    zone.innerHTML=`<div class="guess-vs">
      <div class="col mine"><h4>我刚才猜</h4><p>${mt}</p></div>
-     <div class="col"><h4>拖落点看到</h4><p>落点在垂足时，连线和直线成 90°，长度最短；落点往两边走，连线都变长。这条最短的垂线段，长度就是点到直线的距离。</p></div></div>`;
+     <div class="col"><h4>松手记下的落点看到</h4><p>不同落点的长度摆在一起，落点往两边走数字都变大；只有垂足成 90°、数字最小。这条最短的垂线段，长度就是点到直线的距离。</p></div></div>`;
  },
- task:"先在河岸上拖两个不同的落点，比一比连线长度；再找到和直线成直角的那个垂足。两件事都做到。",
- hint:"盯着长度数字看。落点往两边走，数字都变大；只有成直角的垂足，数字最小。",
- isTaskDone(ctx){return ctx.data.tries.size>=2&&ctx.data.foot;},
- remaining(ctx){const m=[];if(ctx.data.tries.size<2)m.push("在河岸上拖两个不同的落点比一比");if(!ctx.data.foot)m.push("找到和直线成直角的那个垂足");return "还差："+m.join("；");},
- summary:"直线外一点到直线的所有线段里，垂线段最短。",
- condition:"垂线段长度就是点到直线的距离；落点离开垂足，两边的线段都变长。"
+ task:"拖圆点、松手记下两个不同落点，把长度摆在一起比；再锁定和直线成直角的垂足。两件事都做到。",
+ hint:"松手才记一个落点。盯着并排的长度看，往两边走数字都变大，只有垂足最小。",
+ isTaskDone(ctx){return ctx.data.drops.length>=2&&ctx.data.foot;},
+ remaining(ctx){const m=[];if(ctx.data.drops.length<2)m.push("松手记下两个不同的落点比长度");if(!ctx.data.foot)m.push("锁定和直线成直角的垂足");return "还差："+m.join("；");},
+ summary:"直线外一点到直线的所有线段里，垂线段最短；垂线段的长度就是点到直线的距离。",
+ condition:"每次松手只记一个落点，长度并排作证据；落点离开垂足两边都变长，只有垂足成 90°、长度最小。"
 };
 
 /* ---------- E13 中点与和差 ---------- */
@@ -1541,50 +1577,154 @@ E.E25={
  isComplete(ctx){return ctx.data.choice.sel.size>0;},
  collect(ctx){return ctx.data.choice.get()[0];},
  restoreGuess(zone,g){if(g!=="unsure"){const b=zone.querySelector('.choice[data-v="'+g+'"]');if(b)b.click();}},
- task:"点两个按钮，把 D 在 B 左边、右边都看一遍，再看对应的绝对值方程。",
- hint:"先算 BC=3、BD=6。D 在 B 左边、右边都合法，别只盯一个。",
+ task:"自己拖 D，先找出离 B 恰好是 6 的一个点，再找出另一边的那个；然后写方程、分清坐标和距离。",
+ hint:"先算 BC=3、BD=6。离 B 是 6 的点，B 左右各有一个，得自己拖出来，别只盯一边。",
  buildLab(zone,ctx){
-  const COL="#0891b2",K=36,ORIG=170,Y=155,fixed={A:0,B:3,C:6};
-  const sx=x=>ORIG+K*x;
+  const K=34,ORIG=190,Y=160,LO=-5,HI=11;
+  const TARGETS=[-3,9],COL="#0891b2",GREEN="#16a34a",PURPLE="#7c3aed",ORANGE="#ea580c";
+  const sx=x=>ORIG+K*x,clamp=v=>Math.max(LO,Math.min(HI,v));
   const savedLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
-  ctx.data.side=savedLab?savedLab.side:0;
-  ctx.data.seen=new Set(savedLab&&savedLab.seen?savedLab.seen:[ctx.data.side]);
+  ctx.data.step=savedLab?savedLab.step:0;
+  ctx.data.found=savedLab?savedLab.found:[];
+  ctx.data.cur=savedLab?savedLab.cur:5;
+  ctx.data.q2=savedLab?savedLab.q2:0;
+  ctx.data.q3=savedLab?savedLab.q3:0;
+  ctx.data.finished=savedLab?savedLab.finished:false;
   function persist(){
-   state.progress[ctx.lv.slug]=Object.assign(state.progress[ctx.lv.slug]||{guess:ctx.guess},{lab:{side:ctx.data.side,seen:[...ctx.data.seen]}});save();
+   state.progress[ctx.lv.slug]=Object.assign(state.progress[ctx.lv.slug]||{guess:ctx.guess},{lab:{
+    step:ctx.data.step,found:ctx.data.found,cur:ctx.data.cur,q2:ctx.data.q2,q3:ctx.data.q3,finished:ctx.data.finished}});save();
   }
-  zone.innerHTML=`<div class="scene">
-   <div class="quick-views" id="tabs25"><button class="mini-btn">D 在 B 左边</button><button class="mini-btn">D 在 B 右边</button></div>
-   <svg viewBox="0 0 600 270" id="svg25" style="width:100%;max-width:760"></svg>
-   <div class="eq-card" id="eq25" style="border-color:${COL}"></div>
-   <div class="status-bar" id="s25" style="max-width:760"></div></div>`;
-  const svg=zone.querySelector("#svg25"),eq=zone.querySelector("#eq25"),st=zone.querySelector("#s25"),tabs=zone.querySelector("#tabs25");
-  function draw(){
-   const dX=ctx.data.side===0?-3:9,da=Math.abs(dX),dXs=sx(dX),bX=sx(3);
-   let s=`<line x1="40" y1="${Y}" x2="560" y2="${Y}" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
-    <path d="M552 ${Y-7} L560 ${Y} L552 ${Y+7}" fill="#94a3b8"/>`;
-   Object.entries(fixed).forEach(([nm,x])=>{const X=sx(x);
-    s+=`<circle cx="${X}" cy="${Y}" r="8" fill="#fff" stroke="#334155" stroke-width="3"/>
-     <text x="${X}" y="${Y-15}" font-size="19" font-weight="900" fill="#334155" text-anchor="middle">${nm}</text>`;});
-   s+=`<line x1="${bX}" y1="${Y+25}" x2="${dXs}" y2="${Y+25}" stroke="${COL}" stroke-width="2"/>
-    <circle cx="${dXs}" cy="${Y}" r="11" fill="${COL}"/>
-    <text x="${dXs}" y="${Y-18}" font-size="19" font-weight="900" fill="${COL}" text-anchor="middle">D</text>
-    <text x="${(bX+dXs)/2}" y="${Y+47}" font-size="16" font-weight="800" fill="${COL}" text-anchor="middle">BD=6</text>`;
-   svg.innerHTML=s;
-   eq.style.borderColor=COL;
-   eq.innerHTML=`<div class="eq-title" style="color:${COL}">写成绝对值方程（设 D 的坐标是 x）</div>
-    <div class="eq-main">|x − 3| = 6</div>
-    <div class="eq-branch">x − 3 = −6 → x = −3（D 在左，DA=3）</div>
-    <div class="eq-branch">x − 3 = 6 → x = 9（D 在右，DA=9）</div>`;
-   st.textContent=`D 在 B ${ctx.data.side===0?"左":"右"}边，坐标 ${dX}，D 到 A 是 ${da}。两边都看一遍，这一步就做完了。`;
-   [...tabs.children].forEach((b,i)=>{b.style.background=i===ctx.data.side?COL:"#fff";b.style.color=i===ctx.data.side?"#fff":COL;b.style.borderColor=COL;});
+  const STEP_META=[
+   {c:COL,t:"① 拖 D，找离 B 恰好 6 的点"},
+   {c:COL,t:"② 找出另一边的那个点"},
+   {c:PURPLE,t:"③ 写方程，分清坐标和距离"},
+   {c:ORANGE,t:"④ 加范围，看还能不能找到"}
+  ];
+  function stepBar(){
+   return `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:10px">`+
+    STEP_META.map((m,i)=>{const on=i===ctx.data.step,done=i<ctx.data.step;
+     return `<span style="background:${done?GREEN:on?m.c:"#fff"};color:${done||on?"#fff":m.c};border:2px solid ${m.c};border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px">${m.t}</span>`;}).join("")+`</div>`;
   }
-  [...tabs.children].forEach((b,i)=>b.onclick=()=>{ctx.data.side=i;ctx.data.seen.add(i);sfx("click");draw();persist();ctx.check();});
-  draw();persist();ctx.check();
+  function fixedPoints(){
+   let out="";
+   [["A",0],["B",3],["C",6]].forEach(([nm,x])=>{const X=sx(x);
+    out+=`<circle cx="${X}" cy="${Y}" r="8" fill="#fff" stroke="#334155" stroke-width="3"/>
+     <text x="${X}" y="${Y-14}" font-size="19" font-weight="900" fill="#334155" text-anchor="middle">${nm}</text>`;});
+   return out;
+  }
+  function foundPoint(x,idx){
+   const X=sx(x);
+   return `<circle cx="${X}" cy="${Y}" r="11" fill="${GREEN}"/>
+    <text x="${X}" y="${Y-16}" font-size="18" font-weight="900" fill="#15803d" text-anchor="middle">D${idx+1}</text>
+    <text x="${X}" y="${Y+28}" font-size="15" font-weight="800" fill="#15803d" text-anchor="middle">${x}</text>`;
+  }
+  function axis(){
+   return `<line x1="${sx(LO)}" y1="${Y}" x2="${sx(HI)}" y2="${Y}" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+    <path d="M${sx(HI)-8} ${Y-7} L${sx(HI)} ${Y} L${sx(HI)-8} ${Y+7}" fill="#94a3b8"/>`;
+  }
+  function nearestTarget(x){return TARGETS.find(t=>Math.abs(x-t)<1);}
+  function render(){
+   const step=ctx.data.step;
+   let html=`<div class="scene">${stepBar()}<svg viewBox="0 0 600 250" id="svg25" style="width:100%;max-width:760"></svg>`;
+   if(step<=1)html+=`<div class="status-bar" id="s25" style="max-width:760"></div>`;
+   else if(step===2)html+=`<div class="eq-card" id="card25" style="border-color:${PURPLE}"></div>`;
+   else html+=`<div class="eq-card" id="card25" style="border-color:${ORANGE}"></div>`;
+   html+=`</div>`;
+   zone.innerHTML=html;
+   const svg=zone.querySelector("#svg25");
+   let s=axis()+fixedPoints();
+   ctx.data.found.forEach((x,i)=>s+=foundPoint(x,i));
+   if(step===0||step===1){
+    // 可拖把手
+    const bX=sx(3);
+    s+=`<line x1="${bX}" y1="${Y+22}" x2="${sx(ctx.data.cur)}" y2="${Y+22}" stroke="${COL}" stroke-width="2" stroke-dasharray="4 4"/>`;
+    svg.innerHTML=s;
+    const st=zone.querySelector("#s25");
+    const handle=svgHandle(svg,{x:sx(ctx.data.cur),y:Y},pt=>{
+      let math=clamp((pt.x-ORIG)/K);
+      ctx.data.cur=math;pt.x=sx(math);pt.y=Y;
+      const d=Math.abs(math-3);
+      st.textContent=`现在 D 离 B 是 ${d.toFixed(1)}。松手看看对不对。`;
+    },COL,()=>{
+      const x=ctx.data.cur,d=Math.abs(x-3),t=nearestTarget(x);
+      if(step===0){
+       if(t!==undefined){
+        ctx.data.found=[t];ctx.data.cur=t===-3?6:0;ctx.data.step=1;sfx("good");persist();render();
+       }else{
+        const gap=Math.abs(6-d);
+        st.textContent=`现在离 B 是 ${d.toFixed(1)}，还差 ${gap.toFixed(1)}。再拖拖，争取让它正好是 6。`;sfx("click");
+       }
+      }else{
+       if(t!==undefined&&t!==ctx.data.found[0]){
+        ctx.data.found=[...ctx.data.found,t].sort((a,b)=>a-b);ctx.data.step=2;ctx.data.q2=0;sfx("good");persist();render();
+       }else if(t===ctx.data.found[0]){
+        st.textContent=`这个点（${t}）已经找到啦，它在另一边，试试 B 的另一侧。`;sfx("click");
+       }else{
+        const gap=Math.abs(6-d);
+        st.textContent=`现在离 B 是 ${d.toFixed(1)}，还差 ${gap.toFixed(1)}。再拖拖，争取正好是 6。`;sfx("click");
+       }
+      }
+    });
+    if(step===0)st.textContent=`按住圆点左右拖，让 D 离 B 恰好是 6。现在离 B 是 ${Math.abs(ctx.data.cur-3).toFixed(1)}。`;
+    else st.textContent=`D${ctx.data.found[0]===undefined?"":1}（坐标 ${ctx.data.found[0]}）找到了。另一边也能离 B 恰好 6 吗？拖拖看。`;
+   }else if(step===2){
+    svg.innerHTML=s;
+    const card=zone.querySelector("#card25");
+    const eqHead=`<div class="eq-title" style="color:${PURPLE}">设 D 的坐标是 x，它离 B（坐标 3）是 6</div>
+      <div class="eq-main">|x − 3| = 6</div>
+      <div class="eq-branch">解出来 x = −3 或 x = 9，这两个是 D 的坐标</div>`;
+    function ask(da,correct,opts,q){
+     card.innerHTML=eqHead+`<div style="margin-top:10px;border-top:2px dashed #e5e7eb;padding-top:10px">
+       <div style="font-weight:800;color:#1f2937;margin-bottom:8px">${q}</div>
+       <div class="choice-grid">${opts.map((o,i)=>`<button class="choice" data-v="${i}">${o}</button>`).join("")}</div></div>`;
+     bindChoice(card,sel=>{
+      const v=Number(sel[0]);
+      if(Number(opts[v])===correct){sfx("good");ctx.data.q2++;persist();render();}
+      else {toast("再想想，距离是两个坐标相减、取正的数。");sfx("click");}
+     });
+    }
+    if(ctx.data.q2===0)ask(null,3,["3","9","−3"],"D 在 −3 时，它到 A（坐标 0）的距离 DA 是多少？");
+    else if(ctx.data.q2===1)ask(null,9,["3","9","6"],"D 在 9 时，DA 是多少？");
+    else{
+     card.innerHTML=eqHead+`<div style="margin-top:10px;border-top:2px dashed #e5e7eb;padding-top:10px">
+       <div class="eq-branch" style="text-align:left">D 在 −3：DA = |−3−0| = 3</div>
+       <div class="eq-branch" style="text-align:left">D 在 9：DA = |9−0| = 9</div>
+       <div style="font-weight:800;color:#6d28d9;margin-top:8px">方程 |x−3|=6 解出来的是坐标 −3、9；题目问的 DA 是距离，分别是 3、9。坐标能负，距离不会负。</div>
+       <button class="btn btn-primary" id="go25" style="margin-top:12px">继续，加个范围条件</button></div>`;
+     card.querySelector("#go25").onclick=()=>{ctx.data.step=3;ctx.data.q3=0;sfx("click");persist();render();};
+    }
+   }else{
+    // step 3：范围条件
+    const X0=sx(0),X6=sx(6);
+    s+=`<line x1="${X0}" y1="${Y}" x2="${X6}" y2="${Y}" stroke="${ORANGE}" stroke-width="7" stroke-linecap="round" opacity=".55"/>`;
+    svg.innerHTML=s;
+    const card=zone.querySelector("#card25");
+    if(ctx.data.q3===0){
+     card.innerHTML=`<div class="eq-title" style="color:${ORANGE}">题目再加一句：D 必须在线段 AC 上</div>
+      <div class="eq-branch" style="text-align:left">线段 AC 就是数轴上从 0 到 6 这一段（橙色）。</div>
+      <div style="font-weight:800;color:#1f2937;margin:10px 0 8px">离 B 恰好 6 的点，还能在线段 AC 上找到吗？</div>
+      <div class="choice-grid"><button class="choice" data-v="0">能找到两个</button><button class="choice" data-v="1">能找到一个</button><button class="choice" data-v="2">一个也找不到</button></div>`;
+     bindChoice(card,sel=>{
+      if(sel[0]==="2"){sfx("good");ctx.data.q3=1;ctx.data.finished=true;persist();render();}
+      else{toast("看看 −3 和 9 落在哪，再看看橙色段是从哪到哪。");sfx("click");}
+     });
+    }else{
+     card.innerHTML=`<div class="eq-title" style="color:${ORANGE}">为什么一个也没有</div>
+      <div class="eq-branch" style="text-align:left">−3 和 9 离 B 确实都是 6，可它俩都不在 0 到 6 之间。</div>
+      <div style="font-weight:800;color:#c2410c;margin-top:8px">距离条件没变，能放点的范围变了，所以这次一个也没有。</div>`;
+    }
+   }
+   persist();ctx.check();
+  }
+  render();
  },
- isTaskDone(ctx){return ctx.data.seen.size>=2;},
- remaining(ctx){const m=[];if(!ctx.data.seen.has(0))m.push("看 D 在 B 左边");if(!ctx.data.seen.has(1))m.push("看 D 在 B 右边");return "还差："+m.join("；");},
- summary:"点 D 到 B 距离固定、左右没定，要分两种：在左 DA=3，在右 DA=9，就是绝对值方程的两个解。",
- condition:"题目只说 D 在直线上、没说在 B 哪一侧，左右两种都要算。"
+ isTaskDone(ctx){return ctx.data.finished===true;},
+ remaining(ctx){
+  const m={0:"拖 D 找出离 B 恰好 6 的第一个点",1:"找出 B 另一边的那个点",2:"核对两个位置的坐标和距离",3:"判断加了范围后还能不能找到"};
+  return "还差："+(m[ctx.data.step]||"完成这一步");
+ },
+ summary:"D 离 B 固定是 6、左右没定，B 两侧各有一个点：坐标 −3 和 9，就是方程 |x−3|=6 的两个解；题目问的 DA 是距离，分别是 3 和 9，别把坐标和距离混了。",
+ condition:"题目只说 D 在直线上、没说哪一侧时左右都要算；若再加 D 在线段 AC 上（0 到 6），两个点都在范围外，就一个也没有。"
 };
 
 /* ---------- 新课 E26：两个中点，绝对值两解（中等） ---------- */
@@ -2086,7 +2226,7 @@ E.E20={
      const a=(90-angle)*Math.PI/180;
      return`<line x1="${O.x}" y1="${O.y}" x2="${O.x+len*Math.cos(a)}" y2="${O.y-len*Math.sin(a)}" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`;
    }
-   let dragging=false;
+   let dragging=false,totalMin=180,lastAng=0;
    ctx.data.cur={h:3,m:0};
    function render(){
      const {h,m}=normHM();
@@ -2119,15 +2259,23 @@ E.E20={
      return {x:(e.clientX-rect.left)/rect.width*600,y:(e.clientY-rect.top)/rect.height*380};
    }
    svg.addEventListener("pointerdown",e=>{
-     if(e.target.id==="dragM"){dragging=true;svg.setPointerCapture(e.pointerId);sfx("click");}
+     if(e.target.id==="dragM"){
+       dragging=true;svg.setPointerCapture(e.pointerId);sfx("click");
+       const {h,m}=normHM();
+       totalMin=h*60+m;lastAng=m*6;
+     }
    });
    svg.addEventListener("pointermove",e=>{
      if(!dragging)return;
      const p=pointFromEvent(e);
      const geo=Math.atan2(O.y-p.y,p.x-O.x)*180/Math.PI;
-     let minAng=90-geo;minAng=((minAng%360)+360)%360;
-     const m=Math.round(minAng/6)%60;
-     mIn.value=m;render();
+     let curAng=90-geo;curAng=((curAng%360)+360)%360;
+     let dAng=curAng-lastAng;
+     if(dAng>180)dAng-=360;else if(dAng<-180)dAng+=360;
+     if(Math.abs(dAng)>=3){totalMin+=Math.round(dAng/6);lastAng=curAng;}
+     let h2=Math.floor(totalMin/60);h2=((h2%12)+12)%12;
+     const m2=((totalMin%60)+60)%60;
+     hIn.value=h2;mIn.value=m2;render();
    });
    svg.addEventListener("pointerup",()=>{if(dragging){dragging=false;sfx("good");}});
    hIn.addEventListener("change",()=>{const {h,m}=normHM();hIn.value=h;mIn.value=m;render();});
@@ -2332,17 +2480,24 @@ E.E23={
  task:"点两个点配出一个三角形：先把上层（截线）的配完，再把整体（到底边）的配完，一个都别漏。",
  hint:"选同一层横线上的两个点，就定出一个以顶点为尖的三角形。每两个点配一对，配过的会记下来，别重复。",
  buildLab(zone,ctx){
-   ctx.data.m=3;let layer=0,first=-1;
-   ctx.data.picked={top:new Set(),bottom:new Set()};
+   const savedLab=(state.progress[ctx.lv.slug]&&state.progress[ctx.lv.slug].lab)||null;
+   ctx.data.m=savedLab&&savedLab.m?savedLab.m:3;
+   let layer=savedLab&&savedLab.layer?savedLab.layer:0,first=-1;
+   const toSet=a=>new Set(savedLab&&savedLab.picked&&savedLab.picked[a]?savedLab.picked[a]:[]);
+   ctx.data.picked={top:toSet("top"),bottom:toSet("bottom")};
+   ctx.data.exploded=savedLab?!!savedLab.exploded:false;
+   if(ctx.data.exploded&&ctx.data.picked.top.size+ctx.data.picked.bottom.size===0)ctx.data.exploded=false;
    zone.innerHTML=`<div class="scene">
      <div id="goalZone23"></div>
      <div class="quick-views" id="mBar23" style="margin-bottom:6px"></div>
      <div class="quick-views" id="layerBar23">
        <button class="mini-btn">上层·截线</button>
        <button class="mini-btn">整体·底边</button></div>
+     <div class="quick-views" style="margin:8px 0">
+       <button class="mini-btn" id="explodeBtn23" style="font-size:16px;padding:10px 22px">💥 炸开所有三角形</button></div>
      <svg viewBox="0 0 600 380" id="svg23n" style="width:100%;max-width:760;margin-top:8px"></svg>
      <div class="status-bar" id="s23n" style="max-width:820px"></div></div>`;
-   const svg=zone.querySelector("#svg23n"),st=zone.querySelector("#s23n"),mBar=zone.querySelector("#mBar23"),layerBar=zone.querySelector("#layerBar23"),goalZone=zone.querySelector("#goalZone23");
+   const svg=zone.querySelector("#svg23n"),st=zone.querySelector("#s23n"),mBar=zone.querySelector("#mBar23"),layerBar=zone.querySelector("#layerBar23"),goalZone=zone.querySelector("#goalZone23"),explodeBtn=zone.querySelector("#explodeBtn23");
    const fcard=makeFormulaCard(zone,"#16a34a");
    const A={x:300,y:70},TY=200,BY=330;
    const baseX=i=>110+i*(380/(ctx.data.m-1));
@@ -2350,6 +2505,20 @@ E.E23={
    const cutX=i=>A.x+t*(baseX(i)-A.x);
    const pairTotal=()=>ctx.data.m*(ctx.data.m-1)/2;
    function curSet(){return layer===0?ctx.data.picked.top:ctx.data.picked.bottom;}
+   function persist(){
+     state.progress[ctx.lv.slug]=state.progress[ctx.lv.slug]||{guess:ctx.guess};
+     state.progress[ctx.lv.slug].lab={m:ctx.data.m,layer,exploded:ctx.data.exploded,
+       picked:{top:[...ctx.data.picked.top],bottom:[...ctx.data.picked.bottom]}};
+     save();
+   }
+   // 把一个三角形按比例缩到指定格子里，保持原来的胖瘦
+   function fitTri(pts,gx,gy,gw,gh){
+     const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+     const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+     const sc=Math.min(gw/(maxX-minX),gh/(maxY-minY))*0.84;
+     const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+     return pts.map(p=>[(p[0]-cx)*sc+gx+gw/2,(p[1]-cy)*sc+gy+gh/2]);
+   }
    function goalHtml(){
      const g=ctx.data.picked,pt=pairTotal();
      return `<div style="display:flex;gap:18px;justify-content:center;margin-bottom:6px;font-weight:800;font-size:18px">
@@ -2357,6 +2526,16 @@ E.E23={
        <span style="color:${g.bottom.size===pt?"#16a34a":"#9ca3af"}">${g.bottom.size===pt?"☑":"☐"} 整体 ${g.bottom.size}/${pt}</span></div>`;
    }
    function render(){
+     if(ctx.data.exploded){renderExploded();return;}
+     svg.setAttribute("viewBox","0 0 600 380");
+     const hasAny=ctx.data.picked.top.size+ctx.data.picked.bottom.size>0;
+     explodeBtn.textContent="💥 炸开所有三角形";
+     explodeBtn.disabled=!hasAny;
+     if(hasAny){
+       explodeBtn.style.background="#7c3aed";explodeBtn.style.color="#fff";explodeBtn.style.borderColor="#7c3aed";explodeBtn.style.cursor="";
+     }else{
+       explodeBtn.style.background="#e5e7eb";explodeBtn.style.color="#9ca3af";explodeBtn.style.borderColor="#e5e7eb";explodeBtn.style.cursor="not-allowed";
+     }
      const m=ctx.data.m;
      let s="";
      // 已配对的三角形先高亮
@@ -2397,11 +2576,53 @@ E.E23={
      const pk=ctx.data.picked;
      if(pk.top.size===pt&&pk.bottom.size===pt)fcard.render({title:"全部加起来",body:`总数 = 2×${pt} = <span class="hl">${m}×${m-1} = ${2*pt}</span>`,note:"上下两层一样多，乘 2。"});
      else if(pk.top.size===pt)fcard.render({title:"每层有几个",body:`每层 = <span class="hl">${m}×${m-1}÷2 = ${pt}</span>`,note:"同一层横线上 m 个点，两两配对。"});
+     else fcard.hide();
+     persist();
      ctx.check();
    }
+   function renderExploded(){
+     const m=ctx.data.m,pt=pairTotal();
+     const perRow=m===3?3:m===4?6:5;
+     const GW=100,GH=90;
+     const LMS=[
+       {name:"上层 · 截线以上的小三角形",yy:TY,xf:cutX,set:ctx.data.picked.top,col:"#ea580c",fillDone:"rgba(234,88,12,.30)",fillIdle:"rgba(234,88,12,.08)",tag:"上"},
+       {name:"整体 · 到底边的大三角形",yy:BY,xf:baseX,set:ctx.data.picked.bottom,col:"#16a34a",fillDone:"rgba(22,163,74,.30)",fillIdle:"rgba(22,163,74,.08)",tag:"底"}];
+     explodeBtn.textContent="🔗 收回，继续配对";
+     explodeBtn.style.background="#16a34a";explodeBtn.style.color="#fff";explodeBtn.style.borderColor="#16a34a";
+     let s="",y=8;
+     LMS.forEach(lm=>{
+       s+=`<text x="300" y="${y+18}" text-anchor="middle" font-size="17" font-weight="800" fill="${lm.col}">${lm.name} · ${pt} 个</text>`;
+       y+=28;
+       let idx=0;
+       for(let i=0;i<m;i++)for(let j=i+1;j<m;j++){
+         const r=Math.floor(idx/perRow),c=idx%perRow;
+         const inRow=Math.min(perRow,pt-r*perRow);
+         const startX=(600-inRow*GW)/2;
+         const gx=startX+c*GW,gy=y+r*(GH+24);
+         const done=lm.set.has(i+"-"+j);
+         const tp=fitTri([[A.x,A.y],[lm.xf(i),lm.yy],[lm.xf(j),lm.yy]],gx,gy,GW,GH);
+         const pstr=tp.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+         s+=`<polygon points="${pstr}" fill="${done?lm.fillDone:lm.fillIdle}" stroke="${lm.col}" stroke-width="${done?3:2}" stroke-dasharray="${done?"none":"5 4"}"/>`;
+         s+=`<text x="${gx+GW/2}" y="${gy+GH+17}" text-anchor="middle" font-size="14" font-weight="700" fill="${done?lm.col:"#9ca3af"}">${lm.tag} ${i+1}-${j+1}${done?" ✓":""}</text>`;
+         idx++;
+       }
+       y+=Math.ceil(pt/perRow)*(GH+24)+10;
+     });
+     s+=`<text x="300" y="${y+12}" text-anchor="middle" font-size="19" font-weight="900" fill="#7c3aed">一共 ${2*pt} 个 = 上层 ${pt} + 整体 ${pt}</text>`;
+     svg.setAttribute("viewBox",`0 0 600 ${y+34}`);
+     svg.innerHTML=s;
+     goalZone.innerHTML=goalHtml();
+     st.textContent="炸开后一个一个数，看有没有漏。配过的打勾、颜色实；还没找的是虚线浅色。";
+     fcard.hide();
+     persist();
+   }
    [3,4,5].forEach(v=>{const b=document.createElement("button");b.className="mini-btn";b.textContent=v+"条线";
-     b.onclick=()=>{ctx.data.m=v;first=-1;ctx.data.picked={top:new Set(),bottom:new Set()};sfx("click");render();};mBar.appendChild(b);});
+     b.onclick=()=>{ctx.data.m=v;first=-1;ctx.data.picked={top:new Set(),bottom:new Set()};ctx.data.exploded=false;sfx("click");render();};mBar.appendChild(b);});
    [...layerBar.children].forEach((b,i)=>b.onclick=()=>{layer=i;first=-1;sfx("click");render();});
+   explodeBtn.onclick=()=>{
+     if(ctx.data.picked.top.size+ctx.data.picked.bottom.size===0){toast("先自己配出至少一个三角形，再炸开看全。");return;}
+     ctx.data.exploded=!ctx.data.exploded;first=-1;sfx("click");render();
+   };
    render();
  },
  isTaskDone(ctx){
@@ -2488,6 +2709,7 @@ E.E24={
        st.textContent=`第 ${n} 条线和前面 ${newI} 条相交，多出 ${newI} 个交点；它被分成 ${n} 段，新增 ${newR} 块，现在一共 ${rg} 块。`;
      }
      if(n>=2)fcard.render({title:"数出来的公式",body:`交点 <span class="hl">${n}×${n-1}÷2 = ${ip}</span> · 块数 <span class="hl">1+${n}×${n+1}÷2 = ${rg}</span>`,note:`第 ${n} 条线和前面 ${n-1} 条相交，被分成 ${n} 段，新增 ${n} 块。`});
+     else fcard.hide();
      ctx.check();
    }
    zone.querySelector("#addL").onclick=()=>{if(ctx.data.n<5){ctx.data.n++;sfx("good");render();}else toast("最多画 5 条，已经到了。");};

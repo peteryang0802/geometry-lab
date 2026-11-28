@@ -87,6 +87,8 @@ h1,h2,h3{line-height:1.3;margin:0 0 14px;}
 .panel h3{font-size:25px;}
 .lab-wrap{position:relative;min-height:300px;display:flex;flex-direction:column;}
 .task-banner{background:var(--soft);color:var(--accent-ink);border-radius:14px;padding:16px 22px;font-weight:800;font-size:20px;margin-bottom:18px;border-left:7px solid var(--accent);}
+.tb-q{font-weight:800;font-size:20px;line-height:1.4;margin-bottom:7px;}
+.tb-task{font-weight:700;font-size:18px;line-height:1.4;opacity:.9;}
 #labZone{width:100%;position:relative;}
 #labZone .stage-3d{flex:0 0 auto;}
 .flat-grid{display:grid;gap:10px;justify-content:center;margin:0 auto;}
@@ -440,7 +442,9 @@ function guessText(mod,ctx,zone){
 function enterLab(lv,tp,ctx,mod){
  $("#labPanel").classList.remove("hidden");
  setPhase(1);
- $("#taskBanner").textContent="你的任务："+(mod.task||"动手试一试，看看什么变了、什么没变。");
+ const banner=$("#taskBanner");
+ banner.innerHTML=(mod.question?`<div class="tb-q">题目：${mod.question}</div>`:"")
+   +`<div class="tb-task">你的任务：${mod.task||"动手试一试，看看什么变了、什么没变。"}</div>`;
  mod.buildLab($("#labZone"),ctx);
  // 把猜想收成一行，腾出首屏给实验
  const gp=$("#guessPanel");
@@ -758,6 +762,7 @@ const NETS={
  b2:[{id:"1",x:0,y:0},{id:"2",x:1,y:0},{id:"3",x:2,y:0},{id:"4",x:3,y:0},{id:"5",x:4,y:0},{id:"6",x:0,y:1}]
 };
 E.E2={
+ question:"立方体盒子拆开，下面四个图里，哪几个能折回成一个立方体？",
  missMsg:"先在四个图里做你的选择（多选），拿不准也先选上。",
  NETS:[
    {name:"图1",coords:NETS.g1.map((c,i)=>({...c,id:String(i+1)})),good:true},
@@ -912,6 +917,7 @@ E.E2={
 
 /* ---------- E4 长方体展开 ---------- */
 E.E4={
+ question:"我在正面 A 贴了一颗星，想在它背对的那面也贴一颗。第二颗星该贴在哪个面？",
  FACES:[
    {id:"A",w:150,h:100,color:"#67e8f9"},
    {id:"C",w:50,h:100,par:"A",dir:"right",color:"#86efac"},
@@ -1050,6 +1056,7 @@ E.E4={
 
 /* ---------- E6 面动成体（四种） ---------- */
 E.E6={
+ question:"一个直角三角形，绕着它的一条直角边转一周，会得到什么？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    const fig=`<svg viewBox="0 0 600 220" style="width:100%;max-width:680px;margin:6px 0">
@@ -1149,6 +1156,7 @@ E.E6={
 
 /* ---------- E7 截面探秘·立方体 ---------- */
 E.E7={
+ question:"拿一个平面去切正方体，截面最多能是几边形？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    zone.innerHTML=`<p class="muted">拿一把很薄的"刀"（一个平面）去切一个正方体，切出来的那个面叫截面。<b>截面最多能是几边形？</b></p>
@@ -1280,6 +1288,7 @@ E.E7={
 };
 
 E.E8={
+ question:"三棱锥（正四面体）的截面最多能是几边形？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  TV:[[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]],
  buildGuess(zone,ctx){
@@ -1412,6 +1421,7 @@ E.E8={
 
 /* ---------- E12 垂线段最短 ---------- */
 E.E12={
+ question:"点 P 到一条直线，从 P 走到直线上哪一点最近？",
  missMsg:"先做你的选择，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    const fig=`<svg viewBox="0 0 600 210" style="width:100%;max-width:680px;margin:6px 0">
@@ -1505,6 +1515,7 @@ E.E12={
 
 /* ---------- E13 中点与和差 ---------- */
 E.E13={
+ question:"线段 AB=10，M 是它的中点。AM 等于几？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    const fig=`<svg viewBox="0 0 600 180" style="width:100%;max-width:660px;margin:6px 0">
@@ -1578,6 +1589,7 @@ E.E13={
 
 /* ---------- E14 线段分类讨论 ---------- */
 E.E14={
+ question:"线段 AB=10，点 C 在直线 AB 上，且 BC=4。AC 是多少？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    const fig=`<svg viewBox="0 0 600 200" style="width:100%;max-width:680px;margin:6px 0">
@@ -1645,6 +1657,7 @@ E.E14={
 
 /* ---------- 新课 E25：中点与距离，绝对值两解（入门） ---------- */
 E.E25={
+ question:"直线上顺次有 A、B、C，B 是 AC 中点，AC=6。点 D 也在直线上，BD=2BC。D 到 A 有多远？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
   const fig=`<svg viewBox="0 0 600 170" style="width:100%;max-width:660px;margin:6px 0">
@@ -1817,6 +1830,7 @@ E.E25={
 
 /* ---------- 新课 E26：两个中点，绝对值两解（中等） ---------- */
 E.E26={
+ question:"直线上顺次有 A、B、C、D。B 是 AC 中点，C 是 BD 中点，AC=4。点 E 在直线上，EC=AD。E 到 A 有多远？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
   const P=[["A",0],["B",2],["C",4],["D",6]];
@@ -1952,6 +1966,7 @@ E.E26={
 
 /* ---------- 新课 E27：多条件线段，绝对值两解（综合，老杨题） ---------- */
 E.E27={
+ question:"A 的坐标是 0、B 的坐标是 2。点 E 在直线上，EB=5。E 到 A 可能有多远？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
   const P=[["A",0],["B",2]];
@@ -2095,6 +2110,7 @@ E.E27={
 
 /* ---------- E15 度分秒 ---------- */
 E.E15={
+ question:"1 度等于多少分？",
  missMsg:"先做你的选择，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    const fig=`<svg viewBox="0 0 600 180" style="width:100%;max-width:660px;margin:6px 0">
@@ -2217,6 +2233,7 @@ E.E15={
 
 /* ---------- E16 角的和差 ---------- */
 E.E16={
+ question:"35°40′ 加 25°35′，分加起来是 75 分。结果该怎么写？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    zone.innerHTML=`<p class="muted">35°40′ + 25°35′，分加起来是 75 分。结果该怎么写？</p>
@@ -2290,6 +2307,7 @@ E.E16={
 
 /* ---------- E18 余角补角 ---------- */
 E.E18={
+ question:"一个角是 30°，它的余角（两个角加起来 90°）是多少？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    zone.innerHTML=`<p class="muted">一个角是 30°，它的<b>余角</b>（两个角加起来 90°）是多少？</p>
@@ -2366,6 +2384,7 @@ E.E18={
 
 /* ---------- E19 方位角 ---------- */
 E.E19={
+ question:"常说的“东北方向”，是北偏东多少度？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    zone.innerHTML=`<p class="muted">常说的"东北方向"，是<b>北偏东多少度</b>？</p>
@@ -2444,6 +2463,7 @@ E.E19={
 
 /* ---------- E20 钟表夹角 ---------- */
 E.E20={
+ question:"3 点整的时候，时针和分针的夹角是多少度？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    zone.innerHTML=`<p class="muted">3 点整的时候，时针和分针的夹角是多少度？</p>
@@ -2550,6 +2570,7 @@ E.E20={
 
 /* ---------- E21 数角数线段 ---------- */
 E.E21={
+ question:"从一个顶点引出 4 条射线，一共能数出几个角？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    zone.innerHTML=`<p class="muted">从一个顶点引出 4 条射线，一共能数出几个角？</p>
@@ -2636,6 +2657,7 @@ E.E21={
 
 /* ---------- E22 棱柱棱锥归纳（3D） ---------- */
 E.E22={
+ question:"一个 n 棱柱，它有几个面？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    zone.innerHTML=`<p class="muted">先数几个棱柱找规律。一个 n 棱柱，它有几个面？</p>
@@ -2731,6 +2753,7 @@ E.E22={
 };
 
 E.E23={
+ question:"一个大三角形，从顶点引出几条线，中间还有一条横截线。一共能数出几个三角形？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  buildGuess(zone,ctx){
    zone.innerHTML=`<p class="muted">一个大三角形，从顶点引出几条线，中间还有一条横截线。<b>一共能数出几个三角形？</b></p>
@@ -2903,6 +2926,7 @@ E.E23={
 };
 
 E.E24={
+ question:"5 条直线最多把平面分成几块？",
  missMsg:"先选一个你的猜想，拿不准可以选'我不确定'。",
  LINES:[{"px":271.89,"py":186.1,"dx":0.30838,"dy":0.95126},{"px":357.44,"py":167.92,"dx":-0.27985,"dy":0.96004},{"px":275.01,"py":160.65,"dx":-0.81524,"dy":0.57912},{"px":366.08,"py":206.81,"dx":0.98116,"dy":0.19321},{"px":378.4,"py":239.55,"dx":-0.9743,"dy":0.22525}],
  LINE_COLORS:["#0891b2","#ea580c","#db2777","#16a34a","#7c3aed"],
